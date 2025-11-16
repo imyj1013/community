@@ -2,14 +2,12 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-app = FastAPI(title="Community API - Step1 (Routes Only, No Pydantic)")
+app = FastAPI(title="Community API - Routes Only")
 
-
-# 인메모리 "DB"
-users_db = []       # {user_id, email, password, nickname, profile_image}
-posts_db = []       # {post_id, user_id, title, content, ...}
-comments_db = []    # {comment_id, post_id, user_id, content, created_at}
-likes_db = []       # {like_id, post_id, user_id}
+users_db = []
+posts_db = []
+comments_db = []
+likes_db = []
 
 user_id_seq = 1
 post_id_seq = 1
