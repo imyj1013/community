@@ -1,15 +1,15 @@
 # main.py
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
 
-app = FastAPI(title="Community API - Step1 (Routes Only)")
+app = FastAPI(title="Community API - Step1 (Routes Only, No Pydantic)")
 
-# 인메모리 "DB"
+# =========================================
+# 인메모리 "DB" (실제 DB 대신 과제용)
+# =========================================
 users_db = []       # {user_id, email, password, nickname, profile_image}
-posts_db = []       # {post_id, user_id, ...}
-comments_db = []    # {comment_id, post_id, user_id, content}
+posts_db = []       # {post_id, user_id, title, content, ...}
+comments_db = []    # {comment_id, post_id, user_id, content, created_at}
 likes_db = []       # {like_id, post_id, user_id}
 
 user_id_seq = 1
@@ -18,58 +18,9 @@ comment_id_seq = 1
 like_id_seq = 1
 
 
-# Pydantic 스키마
-class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
-
-
-class SignUpRequest(BaseModel):
-    email: EmailStr
-    password: str
-    nickname: str
-    profile_image: Optional[str] = None
-
-
-class ProfileUpdateRequest(BaseModel):
-    nickname: str
-    profile_image: Optional[str] = None
-
-
-class PasswordUpdateRequest(BaseModel):
-    new_password: str
-
-
-class PostCreateRequest(BaseModel):
-    user_id: int
-    title: str
-    content: str
-    image_url: Optional[str] = None
-
-
-class PostUpdateRequest(BaseModel):
-    user_id: int
-    title: str
-    content: str
-    image_url: Optional[str] = None
-
-
-class CommentCreateRequest(BaseModel):
-    post_id: int
-    user_id: int
-    content: str
-
-
-class CommentUpdateRequest(BaseModel):
-    content: str
-
-
-class LikeCreateRequest(BaseModel):
-    post_id: int
-    user_id: int
-
-
+# =========================================
 # 유틸 함수
+# =========================================
 def find_user_by_email(email: str):
     return next((u for u in users_db if u["email"] == email), None)
 
@@ -90,17 +41,30 @@ def find_like_by_id(like_id: int):
     return next((l for l in likes_db if l["like_id"] == like_id), None)
 
 
-# 로그인
+# =========================================
+# 1) 로그인  POST /user/login
+# =========================================
 @app.post("/user/login")
-def login(payload: LoginRequest):
-    if not payload.email or not payload.password:
+async def login(request: Request):
+    try:
+        body = await request.json()
+    except Exception:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_login_request", "data": None},
         )
 
-    user = find_user_by_email(payload.email)
-    if not user or user["password"] != payload.password:
+    email = body.get("email")
+    password = body.get("password")
+
+    if not email or not password:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_login_request", "data": None},
+        )
+
+    user = find_user_by_email(email)
+    if not user or user["password"] != password:
         return JSONResponse(
             status_code=401,
             content={"message": "login_invalid_email_or_pwd", "data": None},
@@ -116,18 +80,34 @@ def login(payload: LoginRequest):
     }
 
 
-# 회원가입
+# =========================================
+# 2) 회원가입  POST /user/signup
+# =========================================
 @app.post("/user/signup", status_code=201)
-def signup(payload: SignUpRequest):
+async def signup(request: Request):
     global user_id_seq
 
-    if not payload.email or not payload.password or not payload.nickname:
+    try:
+        body = await request.json()
+    except Exception:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_signup_request", "data": None},
         )
 
-    if find_user_by_email(payload.email):
+    email = body.get("email")
+    password = body.get("password")
+    nickname = body.get("nickname")
+    profile_image = body.get("profile_image")
+
+    if not email or not password or not nickname:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_signup_request", "data": None},
+        )
+
+    if find_user_by_email(email):
+        # 이미 존재하는 이메일
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_signup_request", "data": None},
@@ -135,10 +115,10 @@ def signup(payload: SignUpRequest):
 
     user = {
         "user_id": user_id_seq,
-        "email": payload.email,
-        "password": payload.password,
-        "nickname": payload.nickname,
-        "profile_image": payload.profile_image,
+        "email": email,
+        "password": password,
+        "nickname": nickname,
+        "profile_image": profile_image,
     }
     users_db.append(user)
     user_id_seq += 1
@@ -149,9 +129,11 @@ def signup(payload: SignUpRequest):
     }
 
 
-# 이메일 중복 확인
+# =========================================
+# 3) 이메일 중복확인  GET /user/check-email/{email}
+# =========================================
 @app.get("/user/check-email/{email}")
-def check_email(email: str):
+async def check_email(email: str):
     exists = find_user_by_email(email) is not None
     return {
         "message": "email_check_success",
@@ -162,9 +144,11 @@ def check_email(email: str):
     }
 
 
-# 닉네임 중복 확인
+# =========================================
+# 4) 닉네임 중복확인  GET /user/check-nickname/{nickname}
+# =========================================
 @app.get("/user/check-nickname/{nickname}")
-def check_nickname(nickname: str):
+async def check_nickname(nickname: str):
     exists = any(u["nickname"] == nickname for u in users_db)
     return {
         "message": "nickname_check_success",
@@ -175,9 +159,28 @@ def check_nickname(nickname: str):
     }
 
 
-# 회원정보 수정
+# =========================================
+# 5) 회원정보수정  PUT /user/update-me/{user_id}
+# =========================================
 @app.put("/user/update-me/{user_id}")
-def update_me(user_id: int, payload: ProfileUpdateRequest):
+async def update_me(user_id: int, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_profile_update_request", "data": None},
+        )
+
+    nickname = body.get("nickname")
+    profile_image = body.get("profile_image")
+
+    if nickname is None:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_profile_update_request", "data": None},
+        )
+
     user = find_user_by_id(user_id)
     if not user:
         return JSONResponse(
@@ -185,15 +188,9 @@ def update_me(user_id: int, payload: ProfileUpdateRequest):
             content={"message": "invalid_profile_update_request", "data": None},
         )
 
-    if not payload.nickname:
-        return JSONResponse(
-            status_code=400,
-            content={"message": "invalid_profile_update_request", "data": None},
-        )
-
-    user["nickname"] = payload.nickname
-    if payload.profile_image is not None:
-        user["profile_image"] = payload.profile_image
+    user["nickname"] = nickname
+    if profile_image is not None:
+        user["profile_image"] = profile_image
 
     return {
         "message": "profile_update_success",
@@ -205,23 +202,42 @@ def update_me(user_id: int, payload: ProfileUpdateRequest):
     }
 
 
-# 비밀번호 수정
+# =========================================
+# 6) 비밀번호수정  PUT /user/update-password/{user_id}
+# =========================================
 @app.put("/user/update-password/{user_id}")
-def update_password(user_id: int, payload: PasswordUpdateRequest):
-    user = find_user_by_id(user_id)
-    if not user or not payload.new_password:
+async def update_password(user_id: int, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_password_update_request", "data": None},
         )
 
-    user["password"] = payload.new_password
+    new_password = body.get("new_password")
+    if not new_password:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_password_update_request", "data": None},
+        )
+
+    user = find_user_by_id(user_id)
+    if not user:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_password_update_request", "data": None},
+        )
+
+    user["password"] = new_password
     return {"message": "password_update_success", "data": None}
 
 
-# 회원 탈퇴
+# =========================================
+# 7) 회원탈퇴  DELETE /user/{user_id}
+# =========================================
 @app.delete("/user/{user_id}")
-def delete_user(user_id: int):
+async def delete_user(user_id: int):
     global users_db
     user = find_user_by_id(user_id)
     if not user:
@@ -234,23 +250,26 @@ def delete_user(user_id: int):
     return {"message": "user_delete_success", "data": None}
 
 
-# 게시글 목록 조회
+# =========================================
+# 8) 게시글 목록 조회  GET /posts/{cursor_id}/{count}
+# =========================================
 @app.get("/posts/{cursor_id}/{count}")
-def list_posts(cursor_id: int, count: int):
+async def list_posts(cursor_id: int, count: int):
     if count <= 0:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_posts_list_request", "data": None},
         )
 
-    # cursor_id 이후의 글들
+    # cursor_id 이후의 글만, 최신순이라고 가정
     filtered = [p for p in posts_db if p["post_id"] > cursor_id]
     sliced = filtered[:count]
     next_cursor = sliced[-1]["post_id"] if sliced else cursor_id
 
-    return {
-        "message": "posts_list_success",
-        "data": [
+    # views/comments_count/likes 는 명세 예시처럼 문자열로 둔다고 가정
+    data_list = []
+    for p in sliced:
+        data_list.append(
             {
                 "post_id": p["post_id"],
                 "title": p["title"][:26],
@@ -260,25 +279,43 @@ def list_posts(cursor_id: int, count: int):
                 "comments_count": p["comments_count"],
                 "likes": p["likes"],
             }
-            for p in sliced
-        ],
+        )
+
+    return {
+        "message": "posts_list_success",
+        "data": data_list,
         "next_cursor": next_cursor,
     }
 
 
-# 게시글 등록
+# =========================================
+# 9) 게시글 등록  POST /posts
+# =========================================
 @app.post("/posts", status_code=201)
-def create_post(payload: PostCreateRequest):
+async def create_post(request: Request):
     global post_id_seq
 
-    if not payload.title or not payload.content or not payload.user_id:
+    try:
+        body = await request.json()
+    except Exception:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_post_create_request", "data": None},
         )
 
-    author = find_user_by_id(payload.user_id)
-    if not author:
+    user_id = body.get("user_id")
+    title = body.get("title")
+    content = body.get("content")
+    image_url = body.get("image_url")
+
+    if not user_id or not title or not content:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_post_create_request", "data": None},
+        )
+
+    user = find_user_by_id(user_id)
+    if not user:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_post_create_request", "data": None},
@@ -286,11 +323,11 @@ def create_post(payload: PostCreateRequest):
 
     post = {
         "post_id": post_id_seq,
-        "user_id": payload.user_id,
-        "title": payload.title,
-        "content": payload.content,
-        "image_url": payload.image_url,
-        "author_nickname": author["nickname"],
+        "user_id": user_id,
+        "title": title,
+        "content": content,
+        "image_url": image_url,
+        "author_nickname": user["nickname"],
         "created_at": "2023-11-03 10:00:00",
         "updated_at": "2023-11-03 10:00:00",
         "views": "0",
@@ -306,9 +343,24 @@ def create_post(payload: PostCreateRequest):
     }
 
 
-# 게시글 수정
+# =========================================
+# 10) 게시글 수정  PUT /posts/{post_id}
+# =========================================
 @app.put("/posts/{post_id}")
-def update_post(post_id: int, payload: PostUpdateRequest):
+async def update_post(post_id: int, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_post_update_request", "data": None},
+        )
+
+    user_id = body.get("user_id")
+    title = body.get("title")
+    content = body.get("content")
+    image_url = body.get("image_url")
+
     post = find_post_by_id(post_id)
     if not post:
         return JSONResponse(
@@ -316,15 +368,16 @@ def update_post(post_id: int, payload: PostUpdateRequest):
             content={"message": "post_not_found", "data": None},
         )
 
-    if not payload.title or not payload.content or not payload.user_id:
+    if not user_id or not title or not content:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_post_update_request", "data": None},
         )
 
-    post["title"] = payload.title
-    post["content"] = payload.content
-    post["image_url"] = payload.image_url
+    # 권한 체크는 생략 (과제용이니까 단순히 값만 수정)
+    post["title"] = title
+    post["content"] = content
+    post["image_url"] = image_url
     post["updated_at"] = "2023-11-03 11:00:00"
 
     return {
@@ -333,9 +386,11 @@ def update_post(post_id: int, payload: PostUpdateRequest):
     }
 
 
-# 게시글 상세조회
+# =========================================
+# 11) 게시글 상세조회  GET /posts/{post_id}
+# =========================================
 @app.get("/posts/{post_id}")
-def get_post_detail(post_id: int):
+async def get_post_detail(post_id: int):
     post = find_post_by_id(post_id)
     if not post:
         return JSONResponse(
@@ -343,13 +398,27 @@ def get_post_detail(post_id: int):
             content={"message": "post_not_found", "data": None},
         )
 
+    # 현재 로그인 유저를 user_id = 1 이라고 가정
     current_user_id = 1
-    user_likes = [l for l in likes_db if l["post_id"] == post_id]
-    like_for_me = next(
-        (l for l in user_likes if l["user_id"] == current_user_id), None
-    )
 
     post_comments = [c for c in comments_db if c["post_id"] == post_id]
+    post_likes = [l for l in likes_db if l["post_id"] == post_id]
+    like_for_me = next(
+        (l for l in post_likes if l["user_id"] == current_user_id), None
+    )
+
+    comments_json = []
+    for c in post_comments:
+        author = find_user_by_id(c["user_id"])
+        nickname = author["nickname"] if author else "unknown"
+        comments_json.append(
+            {
+                "comment_id": c["comment_id"],
+                "content": c["content"],
+                "author_nickname": nickname,
+                "created_at": c["created_at"],
+            }
+        )
 
     return {
         "message": "post_detail_success",
@@ -362,28 +431,20 @@ def get_post_detail(post_id: int):
             "created_at": post["created_at"],
             "updated_at": post["updated_at"],
             "views": 1234,
-            "likes": len(user_likes),
+            "likes": len(post_likes),
             "comments_count": len(post_comments),
-            "comments": [
-                {
-                    "comment_id": c["comment_id"],
-                    "content": c["content"],
-                    "author_nickname": find_user_by_id(c["user_id"])["nickname"]
-                    if find_user_by_id(c["user_id"])
-                    else "unknown",
-                    "created_at": c["created_at"],
-                }
-                for c in post_comments
-            ],
+            "comments": comments_json,
             "is_liked_by_me": like_for_me is not None,
-            "like_id": like_for_me["like_id"] if like_for_me else None,
+            "like_id": like_for_me["like_id"] if like_for_me else 1,
         },
     }
 
 
-# 게시글 삭제
+# =========================================
+# 12) 게시글 삭제  DELETE /posts/{post_id}
+# =========================================
 @app.delete("/posts/{post_id}")
-def delete_post(post_id: int):
+async def delete_post(post_id: int):
     global posts_db
     post = find_post_by_id(post_id)
     if not post:
@@ -396,18 +457,32 @@ def delete_post(post_id: int):
     return {"message": "post_delete_success", "data": None}
 
 
-# 댓글 등록
+# =========================================
+# 13) 댓글 등록  POST /comment
+# =========================================
 @app.post("/comment", status_code=201)
-def create_comment(payload: CommentCreateRequest):
+async def create_comment(request: Request):
     global comment_id_seq
 
-    if not payload.post_id or not payload.user_id or not payload.content:
+    try:
+        body = await request.json()
+    except Exception:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_comment_create_request", "data": None},
         )
 
-    if not find_post_by_id(payload.post_id) or not find_user_by_id(payload.user_id):
+    post_id = body.get("post_id")
+    user_id = body.get("user_id")
+    content = body.get("content")
+
+    if not post_id or not user_id or not content:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_comment_create_request", "data": None},
+        )
+
+    if not find_post_by_id(post_id) or not find_user_by_id(user_id):
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_comment_create_request", "data": None},
@@ -415,9 +490,9 @@ def create_comment(payload: CommentCreateRequest):
 
     comment = {
         "comment_id": comment_id_seq,
-        "post_id": payload.post_id,
-        "user_id": payload.user_id,
-        "content": payload.content,
+        "post_id": post_id,
+        "user_id": user_id,
+        "content": content,
         "created_at": "2023-11-03 10:30:00",
     }
     comments_db.append(comment)
@@ -429,9 +504,26 @@ def create_comment(payload: CommentCreateRequest):
     }
 
 
-# 댓글 수정
+# =========================================
+# 14) 댓글 수정  PUT /comment/{comment_id}
+# =========================================
 @app.put("/comment/{comment_id}")
-def update_comment(comment_id: int, payload: CommentUpdateRequest):
+async def update_comment(comment_id: int, request: Request):
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_comment_update_request", "data": None},
+        )
+
+    content = body.get("content")
+    if not content:
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_comment_update_request", "data": None},
+        )
+
     comment = find_comment_by_id(comment_id)
     if not comment:
         return JSONResponse(
@@ -439,22 +531,18 @@ def update_comment(comment_id: int, payload: CommentUpdateRequest):
             content={"message": "comment_not_found", "data": None},
         )
 
-    if not payload.content:
-        return JSONResponse(
-            status_code=400,
-            content={"message": "invalid_comment_update_request", "data": None},
-        )
-
-    comment["content"] = payload.content
+    comment["content"] = content
     return {
         "message": "comment_update_success",
         "data": {"comment_id": comment_id},
     }
 
 
-# 댓글 삭제
+# =========================================
+# 15) 댓글 삭제  DELETE /comment/{comment_id}
+# =========================================
 @app.delete("/comment/{comment_id}")
-def delete_comment(comment_id: int):
+async def delete_comment(comment_id: int):
     global comments_db
     comment = find_comment_by_id(comment_id)
     if not comment:
@@ -467,29 +555,42 @@ def delete_comment(comment_id: int):
     return {"message": "comment_delete_success", "data": None}
 
 
-# 좋아요 등록
+# =========================================
+# 16) 좋아요 등록  POST /like
+# =========================================
 @app.post("/like", status_code=201)
-def create_like(payload: LikeCreateRequest):
+async def create_like(request: Request):
     global like_id_seq
 
-    if not payload.post_id or not payload.user_id:
+    try:
+        body = await request.json()
+    except Exception:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_like_create_request", "data": None},
         )
 
-    if not find_post_by_id(payload.post_id) or not find_user_by_id(payload.user_id):
+    post_id = body.get("post_id")
+    user_id = body.get("user_id")
+
+    if not post_id or not user_id:
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_like_create_request", "data": None},
         )
 
-    # 같은 user_id, post_id로 중복 좋아요 방지
+    if not find_post_by_id(post_id) or not find_user_by_id(user_id):
+        return JSONResponse(
+            status_code=400,
+            content={"message": "invalid_like_create_request", "data": None},
+        )
+
+    # 중복 좋아요 방지 (선택)
     existing = next(
         (
             l
             for l in likes_db
-            if l["post_id"] == payload.post_id and l["user_id"] == payload.user_id
+            if l["post_id"] == post_id and l["user_id"] == user_id
         ),
         None,
     )
@@ -501,8 +602,8 @@ def create_like(payload: LikeCreateRequest):
 
     like = {
         "like_id": like_id_seq,
-        "post_id": payload.post_id,
-        "user_id": payload.user_id,
+        "post_id": post_id,
+        "user_id": user_id,
     }
     likes_db.append(like)
     like_id_seq += 1
@@ -513,9 +614,11 @@ def create_like(payload: LikeCreateRequest):
     }
 
 
-# 좋아요 취소
+# =========================================
+# 17) 좋아요 취소  DELETE /like/{like_id}
+# =========================================
 @app.delete("/like/{like_id}")
-def delete_like(like_id: int):
+async def delete_like(like_id: int):
     global likes_db
     like = find_like_by_id(like_id)
     if not like:
