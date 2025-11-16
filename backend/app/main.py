@@ -4,9 +4,8 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI(title="Community API - Step1 (Routes Only, No Pydantic)")
 
-# =========================================
-# 인메모리 "DB" (실제 DB 대신 과제용)
-# =========================================
+
+# 인메모리 "DB"
 users_db = []       # {user_id, email, password, nickname, profile_image}
 posts_db = []       # {post_id, user_id, title, content, ...}
 comments_db = []    # {comment_id, post_id, user_id, content, created_at}
@@ -18,9 +17,7 @@ comment_id_seq = 1
 like_id_seq = 1
 
 
-# =========================================
 # 유틸 함수
-# =========================================
 def find_user_by_email(email: str):
     return next((u for u in users_db if u["email"] == email), None)
 
@@ -41,9 +38,7 @@ def find_like_by_id(like_id: int):
     return next((l for l in likes_db if l["like_id"] == like_id), None)
 
 
-# =========================================
-# 1) 로그인  POST /user/login
-# =========================================
+# 로그인  POST /user/login
 @app.post("/user/login")
 async def login(request: Request):
     try:
@@ -80,9 +75,7 @@ async def login(request: Request):
     }
 
 
-# =========================================
-# 2) 회원가입  POST /user/signup
-# =========================================
+# 회원가입  POST /user/signup
 @app.post("/user/signup", status_code=201)
 async def signup(request: Request):
     global user_id_seq
@@ -107,7 +100,6 @@ async def signup(request: Request):
         )
 
     if find_user_by_email(email):
-        # 이미 존재하는 이메일
         return JSONResponse(
             status_code=400,
             content={"message": "invalid_signup_request", "data": None},
@@ -129,9 +121,7 @@ async def signup(request: Request):
     }
 
 
-# =========================================
-# 3) 이메일 중복확인  GET /user/check-email/{email}
-# =========================================
+# 이메일 중복확인  GET /user/check-email/{email}
 @app.get("/user/check-email/{email}")
 async def check_email(email: str):
     exists = find_user_by_email(email) is not None
@@ -144,9 +134,7 @@ async def check_email(email: str):
     }
 
 
-# =========================================
-# 4) 닉네임 중복확인  GET /user/check-nickname/{nickname}
-# =========================================
+# 닉네임 중복확인  GET /user/check-nickname/{nickname}
 @app.get("/user/check-nickname/{nickname}")
 async def check_nickname(nickname: str):
     exists = any(u["nickname"] == nickname for u in users_db)
@@ -159,9 +147,7 @@ async def check_nickname(nickname: str):
     }
 
 
-# =========================================
-# 5) 회원정보수정  PUT /user/update-me/{user_id}
-# =========================================
+# 회원정보수정  PUT /user/update-me/{user_id}
 @app.put("/user/update-me/{user_id}")
 async def update_me(user_id: int, request: Request):
     try:
@@ -202,9 +188,7 @@ async def update_me(user_id: int, request: Request):
     }
 
 
-# =========================================
-# 6) 비밀번호수정  PUT /user/update-password/{user_id}
-# =========================================
+# 비밀번호수정  PUT /user/update-password/{user_id}
 @app.put("/user/update-password/{user_id}")
 async def update_password(user_id: int, request: Request):
     try:
@@ -233,9 +217,7 @@ async def update_password(user_id: int, request: Request):
     return {"message": "password_update_success", "data": None}
 
 
-# =========================================
-# 7) 회원탈퇴  DELETE /user/{user_id}
-# =========================================
+# 회원탈퇴  DELETE /user/{user_id}
 @app.delete("/user/{user_id}")
 async def delete_user(user_id: int):
     global users_db
@@ -250,9 +232,7 @@ async def delete_user(user_id: int):
     return {"message": "user_delete_success", "data": None}
 
 
-# =========================================
-# 8) 게시글 목록 조회  GET /posts/{cursor_id}/{count}
-# =========================================
+# 게시글 목록 조회  GET /posts/{cursor_id}/{count}
 @app.get("/posts/{cursor_id}/{count}")
 async def list_posts(cursor_id: int, count: int):
     if count <= 0:
@@ -261,12 +241,10 @@ async def list_posts(cursor_id: int, count: int):
             content={"message": "invalid_posts_list_request", "data": None},
         )
 
-    # cursor_id 이후의 글만, 최신순이라고 가정
     filtered = [p for p in posts_db if p["post_id"] > cursor_id]
     sliced = filtered[:count]
     next_cursor = sliced[-1]["post_id"] if sliced else cursor_id
 
-    # views/comments_count/likes 는 명세 예시처럼 문자열로 둔다고 가정
     data_list = []
     for p in sliced:
         data_list.append(
@@ -288,9 +266,7 @@ async def list_posts(cursor_id: int, count: int):
     }
 
 
-# =========================================
-# 9) 게시글 등록  POST /posts
-# =========================================
+# 게시글 등록  POST /posts
 @app.post("/posts", status_code=201)
 async def create_post(request: Request):
     global post_id_seq
@@ -343,9 +319,7 @@ async def create_post(request: Request):
     }
 
 
-# =========================================
-# 10) 게시글 수정  PUT /posts/{post_id}
-# =========================================
+# 게시글 수정  PUT /posts/{post_id}
 @app.put("/posts/{post_id}")
 async def update_post(post_id: int, request: Request):
     try:
@@ -374,7 +348,6 @@ async def update_post(post_id: int, request: Request):
             content={"message": "invalid_post_update_request", "data": None},
         )
 
-    # 권한 체크는 생략 (과제용이니까 단순히 값만 수정)
     post["title"] = title
     post["content"] = content
     post["image_url"] = image_url
@@ -386,9 +359,7 @@ async def update_post(post_id: int, request: Request):
     }
 
 
-# =========================================
-# 11) 게시글 상세조회  GET /posts/{post_id}
-# =========================================
+# 게시글 상세조회  GET /posts/{post_id}
 @app.get("/posts/{post_id}")
 async def get_post_detail(post_id: int):
     post = find_post_by_id(post_id)
@@ -398,7 +369,6 @@ async def get_post_detail(post_id: int):
             content={"message": "post_not_found", "data": None},
         )
 
-    # 현재 로그인 유저를 user_id = 1 이라고 가정
     current_user_id = 1
 
     post_comments = [c for c in comments_db if c["post_id"] == post_id]
@@ -440,9 +410,7 @@ async def get_post_detail(post_id: int):
     }
 
 
-# =========================================
-# 12) 게시글 삭제  DELETE /posts/{post_id}
-# =========================================
+# 게시글 삭제  DELETE /posts/{post_id}
 @app.delete("/posts/{post_id}")
 async def delete_post(post_id: int):
     global posts_db
@@ -457,9 +425,7 @@ async def delete_post(post_id: int):
     return {"message": "post_delete_success", "data": None}
 
 
-# =========================================
-# 13) 댓글 등록  POST /comment
-# =========================================
+# 댓글 등록  POST /comment
 @app.post("/comment", status_code=201)
 async def create_comment(request: Request):
     global comment_id_seq
@@ -504,9 +470,7 @@ async def create_comment(request: Request):
     }
 
 
-# =========================================
-# 14) 댓글 수정  PUT /comment/{comment_id}
-# =========================================
+# 댓글 수정  PUT /comment/{comment_id}
 @app.put("/comment/{comment_id}")
 async def update_comment(comment_id: int, request: Request):
     try:
@@ -538,9 +502,7 @@ async def update_comment(comment_id: int, request: Request):
     }
 
 
-# =========================================
-# 15) 댓글 삭제  DELETE /comment/{comment_id}
-# =========================================
+# 댓글 삭제  DELETE /comment/{comment_id}
 @app.delete("/comment/{comment_id}")
 async def delete_comment(comment_id: int):
     global comments_db
@@ -555,9 +517,7 @@ async def delete_comment(comment_id: int):
     return {"message": "comment_delete_success", "data": None}
 
 
-# =========================================
-# 16) 좋아요 등록  POST /like
-# =========================================
+# 좋아요 등록  POST /like
 @app.post("/like", status_code=201)
 async def create_like(request: Request):
     global like_id_seq
@@ -585,7 +545,6 @@ async def create_like(request: Request):
             content={"message": "invalid_like_create_request", "data": None},
         )
 
-    # 중복 좋아요 방지 (선택)
     existing = next(
         (
             l
@@ -614,9 +573,7 @@ async def create_like(request: Request):
     }
 
 
-# =========================================
-# 17) 좋아요 취소  DELETE /like/{like_id}
-# =========================================
+# 좋아요 취소  DELETE /like/{like_id}
 @app.delete("/like/{like_id}")
 async def delete_like(like_id: int):
     global likes_db
