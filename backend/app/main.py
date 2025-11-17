@@ -1,7 +1,18 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request , HTTPException, Response
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.responses import JSONResponse
+import re
+import uuid
 
 app = FastAPI(title="Community API - Routes Only")
+
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="yourSecretKey",
+    max_age=24 * 60 * 60,
+    same_site="lax",
+    https_only=False,
+)
 
 users_db = []
 posts_db = []
@@ -13,10 +24,11 @@ post_id_seq = 1
 comment_id_seq = 1
 like_id_seq = 1
 
-
 def find_user_by_email(email: str):
     return next((u for u in users_db if u["email"] == email), None)
 
+def find_user_by_nickname(nickname: str):
+    return next((u for u in users_db if u["nickname"] == nickname), None)
 
 def find_user_by_id(user_id: int):
     return next((u for u in users_db if u["user_id"] == user_id), None)
@@ -29,9 +41,17 @@ def find_post_by_id(post_id: int):
 def find_comment_by_id(comment_id: int):
     return next((c for c in comments_db if c["comment_id"] == comment_id), None)
 
-
 def find_like_by_id(like_id: int):
     return next((l for l in likes_db if l["like_id"] == like_id), None)
+
+def email_is_valid(email: str):
+    pattern = r'^[\w\.-]+@[\w\.-]+\.\w+$'
+    return re.match(pattern, email) is not None
+
+def nickname_is_valid(nickname: str):
+    pattern = r'^\S{1,10}$'
+    return re.match(pattern, nickname) is not None
+
 
 
 @app.post("/user/login")
@@ -39,147 +59,253 @@ async def login(request: Request):
     try:
         body = await request.json()
     except Exception:
-        return JSONResponse(status_code=400, content={"message": "invalid_login_request", "data": None})
+        raise HTTPException(status_code=400, detail="invalid_login_request")
 
     email = body.get("email")
     password = body.get("password")
 
     if not email or not password:
-        return JSONResponse(status_code=400, content={"message": "invalid_login_request", "data": None})
+        raise HTTPException(status_code=400, detail="invalid_login_request")
 
     user = find_user_by_email(email)
     if not user or user["password"] != password:
-        return JSONResponse(status_code=401, content={"message": "login_invalid_email_or_pwd", "data": None})
+        raise HTTPException(status_code=401, detail="login_invalid_email_or_pwd")
 
-    return {
-        "message": "login_success",
-        "data": {
-            "user_id": user["user_id"],
-            "profile_img_url": user.get("profile_image"),
-            "profile_nickname": user["nickname"],
-        },
-    }
+    session_id = request.session.get("sessionID")
+    if not session_id:
+        session_id = str(uuid.uuid4())
+        request.session["sessionID"] = session_id
+        request.session["email"] = email
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "login_success",
+            "data": {
+                "user_id": user["user_id"],
+                "profile_img_url": user.get("profile_image"),
+                "profile_nickname": user["nickname"],
+                "session_id": session_id
+            }
+        }
+    )
 
 
-@app.post("/user/signup", status_code=201)
+@app.post("/user/signup")
 async def signup(request: Request):
     global user_id_seq
 
     try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(status_code=400, content={"message": "invalid_signup_request", "data": None})
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid_signup_request")
 
-    email = body.get("email")
-    password = body.get("password")
-    nickname = body.get("nickname")
-    profile_image = body.get("profile_image")
+        email = body.get("email")
+        password = body.get("password")
+        nickname = body.get("nickname")
+        profile_image = body.get("profile_image")
 
-    if not email or not password or not nickname:
-        return JSONResponse(status_code=400, content={"message": "invalid_signup_request", "data": None})
+        if not email or not password or not nickname:
+            raise HTTPException(status_code=400, detail="invalid_signup_request")
 
-    if find_user_by_email(email):
-        return JSONResponse(status_code=400, content={"message": "invalid_signup_requestsss", "data": None})
+        user = {
+            "user_id": user_id_seq,
+            "email": email,
+            "password": password,
+            "nickname": nickname,
+            "profile_image": profile_image,
+        }
+        users_db.append(user)
+        user_id_seq += 1
 
-    user = {
-        "user_id": user_id_seq,
-        "email": email,
-        "password": password,
-        "nickname": nickname,
-        "profile_image": profile_image,
-    }
-    users_db.append(user)
-    user_id_seq += 1
-
-    return {
-        "message": "register_success",
-        "data": {"user_id": user["user_id"]},
-    }
+        return JSONResponse(
+            status_code=201,
+            content={
+                "message": "register_success",
+                "data": {
+                    "user_id": user["user_id"]
+                }
+            }
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.get("/user/check-email/{email}")
 async def check_email(email: str):
-    exists = find_user_by_email(email) is not None
-    return {
-        "message": "email_check_success",
-        "data": {
-            "email": email,
-            "possible": not exists,
-        },
-    }
+    try:
+        try:
+            valid = email_is_valid(email)
+            if valid == True:
+                exists = find_user_by_email(email) is not None
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "message": "email_check_success",
+                        "data": {
+                            "email": email,
+                            "possible": not exists
+                        }
+                    }
+                )
+            else :
+                raise HTTPException(status_code=400, detail="invalid_email_format")
+        except:
+            raise HTTPException(status_code=400, detail="invalid_check_email_request")
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.get("/user/check-nickname/{nickname}")
 async def check_nickname(nickname: str):
-    exists = any(u["nickname"] == nickname for u in users_db)
-    return {
-        "message": "nickname_check_success",
-        "data": {
-            "nickname": nickname,
-            "possible": not exists,
-        },
-    }
+    try:
+        try:
+            valid = nickname_is_valid(nickname)
+            if valid == True:
+                exists = find_user_by_nickname(nickname) is not None
+                return JSONResponse(
+                    status_code=200,
+                    content={
+                        "message": "nickname_check_success",
+                        "data": {
+                            "nickname": nickname,
+                            "possible": not exists
+                        }
+                    }
+                )
+            else :
+                raise HTTPException(status_code=400, detail="invalid_nickname_format")
+        except:
+            raise HTTPException(status_code=400, detail="invalid_check_nickname_request")
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.put("/user/update-me/{user_id}")
 async def update_me(user_id: int, request: Request):
     try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse(status_code=400, content={"message": "invalid_profile_update_request", "data": None})
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid_profile_update_request")
+        
+        nickname = body.get("nickname")
+        profile_image = body.get("profile_image")
 
-    nickname = body.get("nickname")
-    profile_image = body.get("profile_image")
+        if nickname is None:
+            raise HTTPException(status_code=400, detail="invalid_profile_update_request")
 
-    if nickname is None:
-        return JSONResponse(status_code=400, content={"message": "invalid_profile_update_request", "data": None})
+        user = find_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=400, detail="invalid_profile_update_request")
 
-    user = find_user_by_id(user_id)
-    if not user:
-        return JSONResponse(status_code=400, content={"message": "invalid_profile_update_request", "data": None})
+        user["nickname"] = nickname
+        if profile_image is not None:
+            user["profile_image"] = profile_image
 
-    user["nickname"] = nickname
-    if profile_image is not None:
-        user["profile_image"] = profile_image
-
-    return {
-        "message": "profile_update_success",
-        "data": {
-            "user_id": user["user_id"],
-            "nickname": user["nickname"],
-            "profile_image": user.get("profile_image"),
-        },
-    }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "profile_update_success",
+                "data": {
+                    "user_id": user["user_id"],
+                    "nickname": user["nickname"],
+                    "profile_image": user.get("profile_image"),
+                }
+            }
+        )
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.put("/user/update-password/{user_id}")
 async def update_password(user_id: int, request: Request):
     try:
-        body = await request.json()
+        try:
+            body = await request.json()
+        except Exception:
+            raise HTTPException(status_code=400, detail="invalid_password_update_request")
+
+        new_password = body.get("new_password")
+        if not new_password:
+            raise HTTPException(status_code=400, detail="invalid_password_update_request")
+
+        user = find_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=400, detail="invalid_password_update_request")
+
+        user["password"] = new_password
+        return JSONResponse(
+            status_code=200,
+            content={
+                "message": "password_update_success"
+            }
+        )
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
+
+
+# @app.delete("user/logout/{user_id}")
+# async def logout(user_id: int):
+#     try:
+#         try:
+#             request.session.clear()
+#             return JSONResponse(status_code=200, content={"message":"logout_success"})
+#         except Exception:
+#             raise HTTPException(status_code=400, detail="invalid_logout_request")
+#     except Exception:
+#         raise HTTPException(status_code=500, detail="internal_server_error")
+
+@app.delete("/user/logout/{user_id}")
+async def logout(user_id: int, request: Request):
+    try:
+        user = find_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=400, detail="invalid_logout_request")
+
+        session_email = request.session.get("email")
+        session_id = request.session.get("sessionID")
+
+        if not session_email or not session_id:
+            raise HTTPException(status_code=400, detail="invalid_logout_request")
+
+        if user["email"] != session_email:
+            raise HTTPException(status_code=400, detail="invalid_logout_request")
+
+        request.session.clear()
+
+        return JSONResponse(
+            status_code=200,
+            content={"message": "logout_success"}
+        )
+
+    except HTTPException:
+        raise
     except Exception:
-        return JSONResponse(status_code=400, content={"message": "invalid_password_update_request", "data": None})
-
-    new_password = body.get("new_password")
-    if not new_password:
-        return JSONResponse(status_code=400, content={"message": "invalid_password_update_request", "data": None})
-
-    user = find_user_by_id(user_id)
-    if not user:
-        return JSONResponse(status_code=400, content={"message": "invalid_password_update_request", "data": None})
-
-    user["password"] = new_password
-    return {"message": "password_update_success", "data": None}
-
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 @app.delete("/user/{user_id}")
 async def delete_user(user_id: int):
     global users_db
-    user = find_user_by_id(user_id)
-    if not user:
-        return JSONResponse(status_code=400, content={"message": "invalid_user_delete_request", "data": None})
+    try:
+        user = find_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=400, detail="invalid_user_delete_request")
+        users_db = [u for u in users_db if u["user_id"] != user_id]
+        return JSONResponse(status_code=200, content={"message": "user_delete_success"})
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
-    users_db = [u for u in users_db if u["user_id"] != user_id]
-    return {"message": "user_delete_success", "data": None}
+
+
+
+
+
+
+
+
+
 
 
 @app.get("/posts/{cursor_id}/{count}")
