@@ -216,11 +216,14 @@ async def update_me(user_id: int, request: Request):
         if nickname is None:
             raise HTTPException(status_code=400, detail="invalid_profile_update_request")
 
-        user = find_user_by_id(user_id)
-        if not user:
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
         
-        session_user_id = request.session.get("user_id")
+        user = find_user_by_id(user_id)
+        if not user:
+            raise HTTPException(status_code=400, detail="invalid_profile_update_request")
+        
         if user_id == session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
@@ -259,16 +262,19 @@ async def update_password(user_id: int, request: Request):
         if not new_password:
             raise HTTPException(status_code=400, detail="invalid_password_update_request")
 
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+        
         user = find_user_by_id(user_id)
         if not user:
-            raise HTTPException(status_code=401, detail="unauthorized_user")
+            raise HTTPException(status_code=400, detail="invalid_password_update_request")
         
-        if user["password"] != current_password:
-            raise HTTPException(status_code=401, detail="unauthorized_user")
-        
-        session_user_id = request.session.get("user_id")
         if user_id == session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
+        
+        if user["password"] != current_password:
+            raise HTTPException(status_code=400, detail="invalid_password")
 
         user["password"] = new_password
         return JSONResponse(status_code=200, content={"detail": "password_update_success"})
@@ -282,7 +288,7 @@ async def update_password(user_id: int, request: Request):
 async def logout(user_id: int, request: Request):
     try:
         if not find_user_by_id(user_id):
-            raise HTTPException(status_code=400, detail="invalid_password_update_request")
+            raise HTTPException(status_code=400, detail="invalid_logout_request")
     
         session_email = request.session.get("email")
         session_id = request.session.get("sessionID")
@@ -307,7 +313,7 @@ async def delete_user(user_id: int, request: Request):
     global users_db
     try:
         if not find_user_by_id(user_id):
-            raise HTTPException(status_code=400, detail="invalid_password_update_request")
+            raise HTTPException(status_code=400, detail="invalid_user_delete_request")
     
         session_email = request.session.get("email")
         session_id = request.session.get("sessionID")
@@ -342,7 +348,7 @@ async def delete_user(user_id: int, request: Request):
 @app.get("/posts")
 async def list_posts(cursor_id: int, count: int):
     if count <= 0 or cursor_id < 0:
-        return JSONResponse(status_code=400, content={"message": "invalid_posts_list_request", "data": None})
+        raise HTTPException(status_code=400, detail="invalid_posts_list_request")
     try:
         filtered = [p for p in posts_db if p["post_id"] > cursor_id]
         sliced = filtered[:count]
@@ -393,10 +399,17 @@ async def create_post(request: Request):
 
         if not user_id or not title or not content:
             raise HTTPException(status_code=400, detail="invalid_post_create_request")
+        
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
 
         user = find_user_by_id(user_id)
         if not user:
-            raise HTTPException(status_code=401, detail="unauthorized_user")
+            raise HTTPException(status_code=400, detail="invalid_post_create_request")
+        
+        if user_id != session_user_id:
+            raise HTTPException(status_code=403, detail="forbidden_user")
 
         post = {
             "post_id": post_id_seq,
@@ -433,7 +446,7 @@ async def update_post(post_id: int, request: Request):
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="invalid_post_create_request")
+        raise HTTPException(status_code=400, detail="invalid_post_update_request")
     try:
         user_id = body.get("user_id")
         title = body.get("title")
@@ -441,15 +454,19 @@ async def update_post(post_id: int, request: Request):
         image_url = body.get("image_url")
 
         if not user_id or not title or not content:
-            raise HTTPException(status_code=400, detail="invalid_post_create_request")
+            raise HTTPException(status_code=400, detail="invalid_post_update_request")
 
         post = find_post_by_id(post_id)
         if not post:
             raise HTTPException(status_code=404, detail="post_not_found")
         
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+
         user = find_user_by_id(user_id)
         if not user:
-            raise HTTPException(status_code=401, detail="unauthorized_user")
+            raise HTTPException(status_code=400, detail="invalid_post_update_request")
         
         if post["user_id"] == request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
@@ -476,14 +493,19 @@ async def update_post(post_id: int, request: Request):
 
 @app.get("/posts/{post_id}")
 async def get_post_detail(post_id: int, request:Request):
+    if post_id < 0:
+        raise HTTPException(status_code=400, detail="invalid_posts_detail_request")
+
     post = find_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="post_not_found")
     try:
-        current_user_id = request.session["user_id"]
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+
         post_comments = [c for c in comments_db if c["post_id"] == post_id]
-        post_likes = [l for l in likes_db if l["post_id"] == post_id]
-        like_for_me = next((l for l in post_likes if l["user_id"] == current_user_id), None)
+        like_for_me = next((l for l in likes_db if l["post_id"] == post_id and l["user_id"] == session_user_id),None)
 
         comments_json = []
         for c in post_comments:
@@ -497,25 +519,30 @@ async def get_post_detail(post_id: int, request:Request):
                     "created_at": c["created_at"],
                 }
             )
+        
+        post["views"] += 1
 
-        return {
-            "message": "post_detail_success",
-            "data": {
-                "post_id": post["post_id"],
-                "title": post["title"],
-                "content": post["content"],
-                "image_url": post["image_url"],
-                "author_nickname": post["author_nickname"],
-                "created_at": post["created_at"],
-                "updated_at": post["updated_at"],
-                "views": 1234,
-                "likes": len(post_likes),
-                "comments_count": len(post_comments),
-                "comments": comments_json,
-                "is_liked_by_me": like_for_me is not None,
-                "like_id": like_for_me["like_id"] if like_for_me else None,
-            },
-        }
+        return JSONResponse(
+            status_code=200,
+            content={
+                "detail": "post_detail_success",
+                "data": {
+                    "post_id": post["post_id"],
+                    "title": post["title"],
+                    "content": post["content"],
+                    "image_url": post["image_url"],
+                    "author_nickname": post["author_nickname"],
+                    "created_at": post["created_at"],
+                    "updated_at": post["updated_at"],
+                    "views": post["views"],
+                    "likes": post["likes"],
+                    "comments_count": post["comments_count"],
+                    "comments": comments_json,
+                    "is_liked_by_me": like_for_me is not None,
+                    "like_id": like_for_me["like_id"] if like_for_me else None
+                }
+            }
+        )
     except HTTPException:
         raise
     except:
@@ -525,19 +552,36 @@ async def get_post_detail(post_id: int, request:Request):
 @app.delete("/posts/{post_id}")
 async def delete_post(post_id: int, request:Request):
     global posts_db
+    if post_id < 0:
+        raise HTTPException(status_code=400, detail="invalid_post_delete_request")
+
     post = find_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="post_not_found")
+    
     try:
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+        
         if post["user_id"] != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
         posts_db = [p for p in posts_db if p["post_id"] != post_id]
-        return {"message": "post_delete_success", "data": None}
+        return JSONResponse(status_code=200, content={"detail": "post_delete_success"})
     except HTTPException:
         raise
     except:
         raise HTTPException(status_code=500, detail="internal_server_error")
+
+
+
+
+
+
+
+
+
 
 
 @app.post("/comment")
@@ -547,32 +591,46 @@ async def create_comment(request: Request):
     try:
         body = await request.json()
     except Exception:
-        return JSONResponse(status_code=400, content={"message": "invalid_comment_create_request", "data": None})
+        raise HTTPException(status_code=400, detail="invalid_comment_create_request")
+    try:
+        post_id = body.get("post_id")
+        user_id = body.get("user_id")
+        content = body.get("content")
 
-    post_id = body.get("post_id")
-    user_id = body.get("user_id")
-    content = body.get("content")
+        if not post_id or not user_id or not content:
+            raise HTTPException(status_code=400, detail="invalid_comment_create_request")
 
-    if not post_id or not user_id or not content:
-        return JSONResponse(status_code=400, content={"message": "invalid_comment_create_request", "data": None})
+        if not find_post_by_id(post_id) or not find_user_by_id(user_id):
+            raise HTTPException(status_code=400, detail="invalid_comment_create_request")
+        
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+        
+        if user_id != session_user_id:
+            raise HTTPException(status_code=400, detail="invalid_comment_create_request")
+            
+        comment = {
+            "comment_id": comment_id_seq,
+            "post_id": post_id,
+            "user_id": user_id,
+            "content": content,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        }
+        comments_db.append(comment)
+        comment_id_seq += 1
 
-    if not find_post_by_id(post_id) or not find_user_by_id(user_id):
-        return JSONResponse(status_code=400, content={"message": "invalid_comment_create_request", "data": None})
-
-    comment = {
-        "comment_id": comment_id_seq,
-        "post_id": post_id,
-        "user_id": user_id,
-        "content": content,
-        "created_at": "2023-11-03 10:30:00",
-    }
-    comments_db.append(comment)
-    comment_id_seq += 1
-
-    return {
-        "message": "comment_create_success",
-        "data": {"comment_id": comment["comment_id"]},
-    }
+        return JSONResponse(
+            status_code=201, 
+            content={
+                "detail": "comment_create_success",
+                "data": {"comment_id": comment["comment_id"]}
+            }
+        )
+    except HTTPException:
+        raise
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.put("/comment/{comment_id}")
@@ -580,32 +638,61 @@ async def update_comment(comment_id: int, request: Request):
     try:
         body = await request.json()
     except Exception:
-        return JSONResponse(status_code=400, content={"message": "invalid_comment_update_request", "data": None})
+        raise HTTPException(status_code=400, detail="invalid_comment_update_request")
+    try:
+        content = body.get("content")
+        if not content:
+            raise HTTPException(status_code=400, detail="invalid_comment_update_request")
 
-    content = body.get("content")
-    if not content:
-        return JSONResponse(status_code=400, content={"message": "invalid_comment_update_request", "data": None})
+        comment = find_comment_by_id(comment_id)
+        if not comment:
+            raise HTTPException(status_code=404, detail="comment_not_found")
+        
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+        
+        if comment["user_id"] != session_user_id:
+            raise HTTPException(status_code=403, detail="forbidden_user")
 
-    comment = find_comment_by_id(comment_id)
-    if not comment:
-        return JSONResponse(status_code=404, content={"message": "comment_not_found", "data": None})
+        comment["content"] = content
 
-    comment["content"] = content
-    return {
-        "message": "comment_update_success",
-        "data": {"comment_id": comment_id},
-    }
+        return JSONResponse(
+            status_code=200, 
+            content={
+                "detail": "comment_create_success",
+                "data": {"comment_id": comment["comment_id"]}
+            }
+        )
+    except HTTPException:
+        raise
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.delete("/comment/{comment_id}")
-async def delete_comment(comment_id: int):
+async def delete_comment(comment_id: int, request:Request):
     global comments_db
-    comment = find_comment_by_id(comment_id)
-    if not comment:
-        return JSONResponse(status_code=404, content={"message": "comment_not_found", "data": None})
+    if comment_id < 0:
+        raise HTTPException(status_code=400, detail="invalid_comment_delete_request")
+    try:
+        comment = find_comment_by_id(comment_id)
+        if not comment:
+                raise HTTPException(status_code=404, detail="comment_not_found")
 
-    comments_db = [c for c in comments_db if c["comment_id"] != comment_id]
-    return {"message": "comment_delete_success", "data": None}
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+        
+        if comment["user_id"] != session_user_id:
+            raise HTTPException(status_code=403, detail="forbidden_user")
+
+        comments_db = [c for c in comments_db if c["comment_id"] != comment_id]
+        return JSONResponse(status_code=200, content={"detail": "comment_delete_success"})
+    except HTTPException:
+        raise
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.post("/like")
@@ -615,44 +702,69 @@ async def create_like(request: Request):
     try:
         body = await request.json()
     except Exception:
-        return JSONResponse(status_code=400, content={"message": "invalid_like_create_request", "data": None})
+        raise HTTPException(status_code=400, detail="invalid_like_create_request")
+    try:
+        post_id = body.get("post_id")
+        user_id = body.get("user_id")
 
-    post_id = body.get("post_id")
-    user_id = body.get("user_id")
+        if not post_id or not user_id:
+            raise HTTPException(status_code=400, detail="invalid_like_create_request")
 
-    if not post_id or not user_id:
-        return JSONResponse(status_code=400, content={"message": "invalid_like_create_request", "data": None})
+        if not find_post_by_id(post_id) or not find_user_by_id(user_id):
+            raise HTTPException(status_code=400, detail="invalid_like_create_request")
+        
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+        
+        if session_user_id != user_id:
+            raise HTTPException(status_code=403, detail="forbidden_user")
 
-    if not find_post_by_id(post_id) or not find_user_by_id(user_id):
-        return JSONResponse(status_code=400, content={"message": "invalid_like_create_request", "data": None})
+        like_for_me = next((l for l in likes_db if l["post_id"] == post_id and l["user_id"] == session_user_id),None)
 
-    existing = next(
-        (l for l in likes_db if l["post_id"] == post_id and l["user_id"] == user_id),
-        None,
-    )
-    if existing:
-        return JSONResponse(status_code=400, content={"message": "invalid_like_create_request", "data": None})
+        if like_for_me:
+            raise HTTPException(status_code=400, detail="invalid_like_create_request")
 
-    like = {
-        "like_id": like_id_seq,
-        "post_id": post_id,
-        "user_id": user_id,
-    }
-    likes_db.append(like)
-    like_id_seq += 1
-
-    return {
-        "message": "like_create_success",
-        "data": {"like_id": like["like_id"]},
-    }
+        like = {
+            "like_id": like_id_seq,
+            "post_id": post_id,
+            "user_id": user_id,
+        }
+        likes_db.append(like)
+        like_id_seq += 1
+        return JSONResponse(
+            status_code=200, 
+            content={
+                "detail": "like_create_success",
+                "data": {"like_id": like["like_id"]}
+            }
+        )
+    except HTTPException:
+        raise
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
 
 
 @app.delete("/like/{like_id}")
-async def delete_like(like_id: int):
+async def delete_like(like_id: int, request:Request):
     global likes_db
-    like = find_like_by_id(like_id)
-    if not like:
-        return JSONResponse(status_code=404, content={"message": "like_not_found", "data": None})
+    if like_id < 0:
+        raise HTTPException(status_code=400, detail="invalid_like_delete_request")
+    try:
+        like = find_like_by_id(like_id)
+        if not like:
+                raise HTTPException(status_code=404, detail="like_not_found")
 
-    likes_db = [l for l in likes_db if l["like_id"] != like_id]
-    return {"message": "like_delete_success", "data": None}
+        session_user_id = request.session.get("user_id")
+        if not session_user_id:
+            raise HTTPException(status_code=401, detail="unauthorized_user")
+        
+        if like["user_id"] != session_user_id:
+            raise HTTPException(status_code=403, detail="forbidden_user")
+
+        likes_db = [l for l in likes_db if l["like_id"] != like_id]
+        return JSONResponse(status_code=200, content={"detail": "like_delete_success"})
+    except HTTPException:
+        raise
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")
