@@ -224,7 +224,7 @@ async def update_me(user_id: int, request: Request):
         if not user:
             raise HTTPException(status_code=400, detail="invalid_profile_update_request")
         
-        if user_id == session_user_id:
+        if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
         user["nickname"] = nickname
@@ -270,7 +270,7 @@ async def update_password(user_id: int, request: Request):
         if not user:
             raise HTTPException(status_code=400, detail="invalid_password_update_request")
         
-        if user_id == session_user_id:
+        if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
         if user["password"] != current_password:
@@ -297,7 +297,7 @@ async def logout(user_id: int, request: Request):
         if not session_email or not session_id or not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
         
-        if user_id == session_user_id:
+        if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
         request.session.clear()
@@ -322,7 +322,7 @@ async def delete_user(user_id: int, request: Request):
         if not session_email or not session_id or not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
         
-        if user_id == session_user_id:
+        if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
         request.session.clear()
@@ -468,7 +468,7 @@ async def update_post(post_id: int, request: Request):
         if not user:
             raise HTTPException(status_code=400, detail="invalid_post_update_request")
         
-        if post["user_id"] == request.session["user_id"]:
+        if post["user_id"] != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
         post["title"] = title
@@ -620,6 +620,9 @@ async def create_comment(request: Request):
         comments_db.append(comment)
         comment_id_seq += 1
 
+        post = find_post_by_id(post_id)
+        post["comments_count"] += 1
+
         return JSONResponse(
             status_code=201, 
             content={
@@ -660,7 +663,7 @@ async def update_comment(comment_id: int, request: Request):
         return JSONResponse(
             status_code=200, 
             content={
-                "detail": "comment_create_success",
+                "detail": "comment_update_success",
                 "data": {"comment_id": comment["comment_id"]}
             }
         )
@@ -688,6 +691,10 @@ async def delete_comment(comment_id: int, request:Request):
             raise HTTPException(status_code=403, detail="forbidden_user")
 
         comments_db = [c for c in comments_db if c["comment_id"] != comment_id]
+
+        post = find_post_by_id(comment["post_id"])
+        post["comments_count"] -= 1
+
         return JSONResponse(status_code=200, content={"detail": "comment_delete_success"})
     except HTTPException:
         raise
@@ -732,6 +739,10 @@ async def create_like(request: Request):
         }
         likes_db.append(like)
         like_id_seq += 1
+
+        post = find_post_by_id(post_id)
+        post["likes"] += 1
+
         return JSONResponse(
             status_code=200, 
             content={
@@ -763,6 +774,10 @@ async def delete_like(like_id: int, request:Request):
             raise HTTPException(status_code=403, detail="forbidden_user")
 
         likes_db = [l for l in likes_db if l["like_id"] != like_id]
+
+        post = find_post_by_id(like["post_id"])
+        post["likes"] -= 1
+
         return JSONResponse(status_code=200, content={"detail": "like_delete_success"})
     except HTTPException:
         raise
