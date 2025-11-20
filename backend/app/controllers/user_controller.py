@@ -2,7 +2,8 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 import uuid
 from . import __init__ as _
-from app import db, utils
+from app import utils
+from app.models import user_model
 
 async def login(request: Request):
     try:
@@ -16,7 +17,7 @@ async def login(request: Request):
         if not email or not password:
             raise HTTPException(status_code=400, detail="invalid_login_request")
 
-        user = utils.find_user_by_email(email)
+        user = user_model.get_user_by_email(email)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_login_request")
         
@@ -70,17 +71,10 @@ async def signup(request: Request):
         if not utils.nickname_is_valid(nickname):
             raise HTTPException(status_code=400, detail="invalid_signup_request")
 
-        user_id = db.counters["user"]
-        db.counters["user"] += 1
+        if user_model.get_user_by_email(email):
+            raise HTTPException(status_code=400, detail="invalid_signup_request")
 
-        user = {
-            "user_id": user_id,
-            "email": email,
-            "password": password,
-            "nickname": nickname,
-            "profile_image": profile_image,
-        }
-        db.users_db.append(user)
+        user = user_model.create_user(email, password, nickname, profile_image)
 
         return JSONResponse(
             status_code=201,
@@ -101,7 +95,7 @@ async def check_email(email: str):
     try:
         valid = utils.email_is_valid(email)
         if valid == True:
-            exists = utils.find_user_by_email(email) is not None
+            exists = user_model.get_user_by_email(email) is not None
             return JSONResponse(
                 status_code=200,
                 content={
@@ -124,7 +118,7 @@ async def check_nickname(nickname: str):
     try:
         valid = utils.nickname_is_valid(nickname)
         if valid == True:
-            exists = utils.find_user_by_nickname(nickname) is not None
+            exists = user_model.get_user_by_nickname(nickname) is not None
             return JSONResponse(
                 status_code=200,
                 content={
@@ -159,16 +153,14 @@ async def update_me(user_id: int, request: Request):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
         
-        user = utils.find_user_by_id(user_id)
+        user = user_model.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_profile_update_request")
         
         if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
-        user["nickname"] = nickname
-        if profile_image is not None:
-            user["profile_image"] = profile_image
+        user = user_model.update_user_profile(user, nickname, profile_image)
 
         return JSONResponse(
             status_code=200,
@@ -204,7 +196,7 @@ async def update_password(user_id: int, request: Request):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
         
-        user = utils.find_user_by_id(user_id)
+        user = user_model.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_password_update_request")
         
@@ -214,7 +206,7 @@ async def update_password(user_id: int, request: Request):
         if user["password"] != current_password:
             raise HTTPException(status_code=400, detail="invalid_password")
 
-        user["password"] = new_password
+        user = user_model.update_user_password(user, new_password)
         return JSONResponse(status_code=200, content={"detail": "password_update_success"})
     except HTTPException:
         raise
@@ -224,7 +216,7 @@ async def update_password(user_id: int, request: Request):
 
 async def logout(user_id: int, request: Request):
     try:
-        if not utils.find_user_by_id(user_id):
+        if not user_model.get_user_by_id(user_id):
             raise HTTPException(status_code=400, detail="invalid_logout_request")
     
         session_email = request.session.get("email")
@@ -247,7 +239,7 @@ async def logout(user_id: int, request: Request):
 
 async def delete_user(user_id: int, request: Request):
     try:
-        if not utils.find_user_by_id(user_id):
+        if not user_model.get_user_by_id(user_id):
             raise HTTPException(status_code=400, detail="invalid_user_delete_request")
     
         session_email = request.session.get("email")
@@ -262,7 +254,7 @@ async def delete_user(user_id: int, request: Request):
         
         request.session.clear()
         
-        db.users_db = [u for u in db.users_db if u["user_id"] != user_id]
+        user_model.delete_user(user_id)
         return JSONResponse(status_code=200, content={"detail": "user_delete_success"})
     except HTTPException:
         raise

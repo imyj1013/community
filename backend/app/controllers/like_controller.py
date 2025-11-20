@@ -1,7 +1,8 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from . import __init__ as _
-from app import db, utils
+from app.models import user_model, post_model, like_model
+
 
 async def create_like(request: Request):
     try:
@@ -15,7 +16,7 @@ async def create_like(request: Request):
         if not post_id or not user_id:
             raise HTTPException(status_code=400, detail="invalid_like_create_request")
 
-        if not utils.find_post_by_id(post_id) or not utils.find_user_by_id(user_id):
+        if not post_model.get_post_by_id(post_id) or not user_model.get_user_by_id(user_id):
             raise HTTPException(status_code=400, detail="invalid_like_create_request")
 
         session_user_id = request.session.get("user_id")
@@ -25,26 +26,13 @@ async def create_like(request: Request):
         if session_user_id != user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
-        like_for_me = next(
-            (l for l in db.likes_db if l["post_id"] == post_id and l["user_id"] == session_user_id),
-            None,
-        )
+        like_for_me = like_model.get_my_like(post_id, session_user_id)
 
         if like_for_me:
             raise HTTPException(status_code=400, detail="invalid_like_create_request")
-
-        like_id = db.counters["like"]
-        db.counters["like"] += 1
-
-        like = {
-            "like_id": like_id,
-            "post_id": post_id,
-            "user_id": user_id,
-        }
-        db.likes_db.append(like)
-
-        post = utils.find_post_by_id(post_id)
-        post["likes"] += 1
+        
+        like = create_like(post_id, user_id)
+        post = post_model.update_likes(post, 1)
 
         return JSONResponse(
             status_code=200,
@@ -63,7 +51,7 @@ async def delete_like(like_id: int, request: Request):
     if like_id < 0:
         raise HTTPException(status_code=400, detail="invalid_like_delete_request")
     try:
-        like = utils.find_like_by_id(like_id)
+        like = like_model.get_like_by_id(like_id)
         if not like:
             raise HTTPException(status_code=404, detail="like_not_found")
 
@@ -74,10 +62,8 @@ async def delete_like(like_id: int, request: Request):
         if like["user_id"] != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
-        db.likes_db = [l for l in db.likes_db if l["like_id"] != like_id]
-
-        post = utils.find_post_by_id(like["post_id"])
-        post["likes"] -= 1
+        delete_like(like_id)
+        post = post_model.update_likes(post, -1)
 
         return JSONResponse(status_code=200, content={"detail": "like_delete_success"})
     except HTTPException:

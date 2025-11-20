@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 from . import __init__ as _
 from app import db, utils
+from app.models import user_model, post_model, comment_model, like_model
 
 async def list_posts(cursor_id: int, count: int):
     if count <= 0 or cursor_id < 0:
@@ -56,32 +57,14 @@ async def create_post(request: Request):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        user = utils.find_user_by_id(user_id)
+        user = user_model.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_post_create_request")
 
         if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
-
-        post_id = db.counters["post"]
-        db.counters["post"] += 1
-
-        now = datetime.now(timezone.utc).isoformat()
-
-        post = {
-            "post_id": post_id,
-            "user_id": user_id,
-            "title": title,
-            "content": content,
-            "image_url": image_url,
-            "author_nickname": user["nickname"],
-            "created_at": now,
-            "updated_at": now,
-            "views": 0,
-            "comments_count": 0,
-            "likes": 0,
-        }
-        db.posts_db.append(post)
+        
+        post = post_model.create_post(user_id, title, content, image_url, user["nickname"], datetime.now(timezone.utc).isoformat())
 
         return JSONResponse(
             status_code=201,
@@ -107,7 +90,7 @@ async def update_post(post_id: int, request: Request):
         if not user_id or not title or not content:
             raise HTTPException(status_code=400, detail="invalid_post_update_request")
 
-        post = utils.find_post_by_id(post_id)
+        post = post_model.get_post_by_id(post_id)
         if not post:
             raise HTTPException(status_code=404, detail="post_not_found")
 
@@ -115,17 +98,14 @@ async def update_post(post_id: int, request: Request):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        user = utils.find_user_by_id(user_id)
+        user = user_model.get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_post_update_request")
 
         if post["user_id"] != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
-
-        post["title"] = title
-        post["content"] = content
-        post["image_url"] = image_url
-        post["updated_at"] = datetime.now(timezone.utc).isoformat()
+        
+        post = post_model.update_post(post, title, content, image_url, datetime.now(timezone.utc).isoformat())
 
         return JSONResponse(
             status_code=200,
@@ -141,7 +121,7 @@ async def get_post_detail(post_id: int, request: Request):
     if post_id < 0:
         raise HTTPException(status_code=400, detail="invalid_posts_detail_request")
 
-    post = utils.find_post_by_id(post_id)
+    post = post_model.get_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="post_not_found")
     try:
@@ -149,15 +129,12 @@ async def get_post_detail(post_id: int, request: Request):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        post_comments = [c for c in db.comments_db if c["post_id"] == post_id]
-        like_for_me = next(
-            (l for l in db.likes_db if l["post_id"] == post_id and l["user_id"] == session_user_id),
-            None,
-        )
+        post_comments = comment_model.get_comment_by_post_id(post_id)
+        like_for_me = like_model.get_my_like(post_id, session_user_id)
 
         comments_json = []
         for c in post_comments:
-            author = utils.find_user_by_id(c["user_id"])
+            author = user_model.get_user_by_id(c["user_id"])
             nickname = author["nickname"] if author else "unknown"
             comments_json.append(
                 {
@@ -201,7 +178,7 @@ async def delete_post(post_id: int, request: Request):
     if post_id < 0:
         raise HTTPException(status_code=400, detail="invalid_post_delete_request")
 
-    post = utils.find_post_by_id(post_id)
+    post = post_model.get_post_by_id(post_id)
     if not post:
         raise HTTPException(status_code=404, detail="post_not_found")
     try:
@@ -211,8 +188,8 @@ async def delete_post(post_id: int, request: Request):
 
         if post["user_id"] != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
-
-        db.posts_db = [p for p in db.posts_db if p["post_id"] != post_id]
+        
+        db.posts_db = delete_post(post_id)
         return JSONResponse(status_code=200, content={"detail": "post_delete_success"})
     except HTTPException:
         raise
