@@ -15,7 +15,7 @@ async def list_posts(cursor_id: int, count: int):
     if count <= 0 or cursor_id < 0:
         raise HTTPException(status_code=400, detail="invalid_posts_list_request")
     try:
-        filtered = [p for p in db.posts_db if p["post_id"] > cursor_id]
+        filtered = post_model.get_post_list_by_id(cursor_id)
         sliced = filtered[:count]
         next_cursor = sliced[-1]["post_id"] if sliced else cursor_id
 

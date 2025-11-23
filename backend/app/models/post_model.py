@@ -25,6 +25,9 @@ def create_post(user_id, title, content, summary, image_url, nickname, time):
 def get_post_by_id(post_id: int):
     return next((p for p in db.posts_db if p["post_id"] == post_id), None)
 
+def get_post_list_by_id(cursor_id: int):
+    return [p for p in db.posts_db if p["post_id"] > cursor_id]
+
 def update_post(post, title, content, summary, image_url, time):
     post["title"] = title
     post["content"] = content
