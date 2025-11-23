@@ -1,3 +1,13 @@
 fastapi==0.109.2
 uvicorn==0.27.1
 itsdangerous==2.2.0
+
+# --- Hugging Face 모델 로딩 & 실행을 위한 패키지 ---
+transformers==4.40.2
+huggingface_hub==0.22.2
+sentencepiece==0.1.99
+safetensors==0.4.2
+torch==2.2.1
+numpy==1.26.4
+
+# torch==2.2.1+cu118  # Pytorch (GPU 사용 버전)
