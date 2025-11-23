@@ -4,6 +4,12 @@ from datetime import datetime, timezone
 from . import __init__ as _
 from app import db, utils
 from app.models import user_model, post_model, comment_model, like_model
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+
+model_path = "./ai/kobart-summary-v3"
+
+tokenizer = AutoTokenizer.from_pretrained(model_path)
+model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
 
 async def list_posts(cursor_id: int, count: int):
     if count <= 0 or cursor_id < 0:
@@ -21,6 +27,7 @@ async def list_posts(cursor_id: int, count: int):
                     "title": p["title"][:26],
                     "author_nickname": p["author_nickname"],
                     "created_at": p["created_at"],
+                    "summary": p["summary"],
                     "views": utils.format_number(p["views"]),
                     "comments_count": utils.format_number(p["comments_count"]),
                     "likes": utils.format_number(p["likes"]),
@@ -64,7 +71,11 @@ async def create_post(request: Request):
         if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
-        post = post_model.create_post(user_id, title, content, image_url, user["nickname"], datetime.now(timezone.utc).isoformat())
+        inputs = tokenizer(content, return_tensors="pt")
+        summary_ids = model.generate(**inputs, max_length=200)
+        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        
+        post = post_model.create_post(user_id, title, content, summary, image_url, user["nickname"], datetime.now(timezone.utc).isoformat())
 
         return JSONResponse(
             status_code=201,
@@ -105,7 +116,11 @@ async def update_post(post_id: int, request: Request):
         if post["user_id"] != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
-        post = post_model.update_post(post, title, content, image_url, datetime.now(timezone.utc).isoformat())
+        inputs = tokenizer(content, return_tensors="pt")
+        summary_ids = model.generate(**inputs, max_length=200)
+        summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
+        
+        post = post_model.update_post(post, title, content, summary, image_url, datetime.now(timezone.utc).isoformat())
 
         return JSONResponse(
             status_code=200,
