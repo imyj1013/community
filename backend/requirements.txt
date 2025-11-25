@@ -4,8 +4,7 @@ itsdangerous==2.2.0
 
 # --- Database ---
 SQLAlchemy==2.0.25
-pymysql==1.1.0        # Sync MySQL 드라이버
-asyncmy==0.2.9        # Async MySQL 드라이버
+pymysql==1.1.0
 # python-dotenv==1.0.1  # 환경변수(.env) 로딩
 
 # --- Hugging Face 모델 로딩 & 실행을 위한 패키지 ---

@@ -1,29 +1,38 @@
 from app import db
+from sqlalchemy.orm import Session
+from app.entity.comment_entity import Comment
 
-def create_comment(post_id, user_id, content, created_at):
-    comment_id = db.counters["comment"]
-    db.counters["comment"] += 1
-
-    comment = {
-        "comment_id": comment_id,
-        "post_id": post_id,
-        "user_id": user_id,
-        "content": content,
-        "created_at": created_at
-    }
-    db.comments_db.append(comment)
+def create_comment(db: Session, post_id, user_id, content):
+    comment = Comment(
+        post_id=post_id,
+        user_id=user_id,
+        content=content
+    )
+    db.add(comment)
+    db.commit()
+    db.refresh(comment)
     return comment
 
-def get_comment_by_id(comment_id: int):
-    return next((c for c in db.comments_db if c["comment_id"] == comment_id), None)
+def get_comment_by_id(db: Session, comment_id: int):
+    return db.query(Comment).filter(Comment.comment_id == comment_id).first()
 
-def update_comment(comment, content):
-    comment["content"] = content
+def update_comment(db: Session, comment, content):
+    comment.content = content
+    db.commit()
+    db.refresh(comment)
     return comment
 
-def delete_comment(comment_id):
-    db.comments_db = [c for c in db.comments_db if c["comment_id"] != comment_id]
+def delete_comment(db: Session, comment_id):
+    db.query(Comment).filter(Comment.comment_id == comment_id).delete(
+        synchronize_session=False
+    )
+    db.commit()
     return
 
-def get_comment_by_post_id(post_id:int):
-    return [c for c in db.comments_db if c["post_id"] == post_id]
+def get_comment_by_post_id(db: Session, post_id:int):
+    return (
+        db.query(Comment)
+        .filter(Comment.post_id == post_id)
+        .order_by(Comment.comment_id.asc())
+        .all()
+    )

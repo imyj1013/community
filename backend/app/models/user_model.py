@@ -1,38 +1,45 @@
 from app import db
+from sqlalchemy.orm import Session
+from app.entity.user_entity import User
 
-def create_user(email: str, password: str, nickname: str, profile_image: str | None):
-    user_id = db.counters["user"]
-    db.counters["user"] += 1
-
-    user = {
-        "user_id": user_id,
-        "email": email,
-        "password": password,
-        "nickname": nickname,
-        "profile_image": profile_image,
-    }
-    db.users_db.append(user)
+def create_user(db: Session, email: str, password: str, nickname: str, profile_image: str | None):
+    user = User(
+        email=email,
+        password=password,
+        nickname=nickname,
+        profile_image=profile_image,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     return user
 
-def get_user_by_email(email: str):
-    return next((u for u in db.users_db if u["email"] == email), None)
+def get_user_by_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
 
-def get_user_by_nickname(nickname: str):
-    return next((u for u in db.users_db if u["nickname"] == nickname), None)
+def get_user_by_nickname(db: Session, nickname: str):
+    return db.query(User).filter(User.nickname == nickname).first()
 
-def get_user_by_id(user_id: int):
-    return next((u for u in db.users_db if u["user_id"] == user_id), None)
+def get_user_by_id(db: Session, user_id: int):
+    return db.query(User).filter(User.user_id == user_id).first()
 
-def update_user_profile(user: dict, nickname: str, profile_image: str | None):
+def update_user_profile(db: Session, user: User, nickname: str, profile_image: str | None):
     user["nickname"] = nickname
     if profile_image is not None:
         user["profile_image"] = profile_image
+    db.commit()
+    db.refresh(user)
     return user
 
-def update_user_password(user: dict, new_password: str):
-    user["password"] = new_password
+def update_user_password(db: Session, user: User, new_password: str):
+    user.password = new_password
+    db.commit()
+    db.refresh(user)
     return user
 
-def delete_user(user_id: int):
-    db.users_db = [u for u in db.users_db if u["user_id"] != user_id]
-    return
+def delete_user(db: Session, user_id: int):
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        return
+    db.delete(user)
+    db.commit()

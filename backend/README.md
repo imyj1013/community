@@ -17,3 +17,9 @@ uvicorn backend.app.main:app --reload
 ```
 python download_model.py
 ```
+# DB Mysql
+```
+mysql -u root -p
+CREATE DATABASE community CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+python create_table.py
+```

@@ -1,9 +1,9 @@
 from fastapi import FastAPI
 from starlette.middleware.sessions import SessionMiddleware
-from app.routers.user_routes import router as user_router
-from app.routers.post_routes import router as post_router
-from app.routers.comment_routes import router as comment_router
-from app.routers.like_routes import router as like_router
+from .routers.user_routes import router as user_router
+from .routers.post_routes import router as post_router
+from .routers.comment_routes import router as comment_router
+from .routers.like_routes import router as like_router
 
 app = FastAPI(title="Community API - Route/Controller")
 

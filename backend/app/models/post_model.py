@@ -1,49 +1,61 @@
 from app import db
+from sqlalchemy.orm import Session
+from app.entity.post_entity import Post
 
-def create_post(user_id, title, content, summary, image_url, nickname, time):
-    post_id = db.counters["post"]
-    db.counters["post"] += 1
-
-    post = {
-        "post_id": post_id,
-        "user_id": user_id,
-        "title": title,
-        "content": content,
-        "summary": summary,
-        "image_url": image_url,
-        "author_nickname": nickname,
-        "created_at": time,
-        "updated_at": time,
-        "views": 0,
-        "comments_count": 0,
-        "likes": 0
-    }
-    db.posts_db.append(post)
+def create_post(db: Session, user_id, title, content, summary, image_url, nickname):
+    post = Post(
+        user_id=user_id,
+        title=title,
+        content=content,
+        summary=summary,
+        image_url=image_url,
+        author_nickname=nickname,
+        views=0,
+        comments_count=0,
+        likes=0,
+    )
+    db.add(post)
+    db.commit()
+    db.refresh(post)
     return post
 
+def get_post_by_id(db: Session, post_id: int):
+    return db.query(Post).filter(Post.post_id == post_id).first()
 
-def get_post_by_id(post_id: int):
-    return next((p for p in db.posts_db if p["post_id"] == post_id), None)
+def get_post_list_by_id(db: Session, cursor_id: int):
+    return (
+        db.query(Post)
+        .filter(Post.post_id > cursor_id)
+        .order_by(Post.post_id.asc())
+        .all()
+    )
 
-def get_post_list_by_id(cursor_id: int):
-    return [p for p in db.posts_db if p["post_id"] > cursor_id]
-
-def update_post(post, title, content, summary, image_url, time):
-    post["title"] = title
-    post["content"] = content
-    post["summary"] = summary
-    post["image_url"] = image_url
-    post["updated_at"] = time
+def update_post(db: Session, post, title, content, summary, image_url):
+    post.title = title
+    post.content = content
+    post.summary = summary
+    post.image_url = image_url
+    db.commit()
+    db.refresh(post)
     return post
 
-def delete_post(post_id:int):
-    db.posts_db = [p for p in db.posts_db if p["post_id"] != post_id]
+def delete_post(db: Session, post_id:int):
+    db.query(Post).filter(Post.post_id == post_id).delete(synchronize_session=False)
+    db.commit()
     return
 
-def update_likes(post, count):
-    post["likes"] = post["likes"] + count
+def update_likes(db: Session, post, count):
+    post.likes = (post.likes or 0) + count
+    if post.likes < 0:
+        post.likes = 0
+    db.commit()
+    db.refresh(post)
     return post
 
-def update_comments_count(post, count):
-    post["comments_count"] = post["comments_count"] + count
+def update_comments_count(db: Session, post, count):
+    post.comments_count = (post.comments_count or 0) + count
+    if post.comments_count < 0:
+        post.comments_count = 0
+    db.commit()
+    db.refresh(post)
     return post
