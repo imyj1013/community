@@ -2,7 +2,7 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from . import __init__ as _
-from models import user_model, post_model, comment_model
+from ..models import user_model, post_model, comment_model
 
 async def create_comment(request: Request, db: Session):
     try:

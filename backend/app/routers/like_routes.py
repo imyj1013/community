@@ -7,8 +7,8 @@ router = APIRouter()
 
 @router.post("/like")
 async def create_like(request: Request, db: Session = Depends(get_db)):
-    return await lc.create_like(request)
+    return await lc.create_like(request, db)
 
 @router.delete("/like/{like_id}")
 async def delete_like(like_id: int, request: Request, db: Session = Depends(get_db)):
-    return await lc.delete_like(like_id, request)
+    return await lc.delete_like(like_id, request, db)

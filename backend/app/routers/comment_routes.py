@@ -7,12 +7,12 @@ router = APIRouter()
 
 @router.post("/comment")
 async def create_comment(request: Request, db: Session = Depends(get_db)):
-    return await cc.create_comment(request)
+    return await cc.create_comment(request, db)
 
 @router.put("/comment/{comment_id}")
 async def update_comment(comment_id: int, request: Request, db: Session = Depends(get_db)):
-    return await cc.update_comment(comment_id, request)
+    return await cc.update_comment(comment_id, request, db)
 
 @router.delete("/comment/{comment_id}")
 async def delete_comment(comment_id: int, request: Request, db: Session = Depends(get_db)):
-    return await cc.delete_comment(comment_id, request)
+    return await cc.delete_comment(comment_id, request, db)
