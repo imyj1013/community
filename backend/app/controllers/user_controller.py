@@ -22,7 +22,7 @@ async def login(request: Request, db: Session):
         if not user:
             raise HTTPException(status_code=400, detail="invalid_login_request")
         
-        if user["password"] != password:
+        if user.password != password:
             raise HTTPException(status_code=401, detail="login_invalid_email_or_pwd")
 
         session_id = request.session.get("sessionID")
@@ -30,7 +30,7 @@ async def login(request: Request, db: Session):
             session_id = str(uuid.uuid4())
             request.session["sessionID"] = session_id
             request.session["email"] = email
-            request.session["user_id"] = user["user_id"]
+            request.session["user_id"] = user.user_id
         else:
             raise HTTPException(status_code=409, detail="already_logged_in")
 
@@ -39,9 +39,9 @@ async def login(request: Request, db: Session):
             content={
                 "detail": "login_success",
                 "data": {
-                    "user_id": user["user_id"],
-                    "profile_img_url": user.get("profile_image"),
-                    "profile_nickname": user["nickname"],
+                    "user_id": user.user_id,
+                    "profile_img_url": getattr(user, "profile_image", None),
+                    "profile_nickname": user.nickname,
                     "session_id": session_id
                 }
             }
@@ -82,7 +82,7 @@ async def signup(request: Request, db: Session):
             content={
                 "detail": "register_success",
                 "data": {
-                    "user_id": user["user_id"]
+                    "user_id": user.user_id
                 }
             }
         )
@@ -168,9 +168,9 @@ async def update_me(user_id: int, request: Request, db: Session):
             content={
                 "detail": "profile_update_success",
                 "data": {
-                    "user_id": user["user_id"],
-                    "nickname": user["nickname"],
-                    "profile_image": user.get("profile_image"),
+                    "user_id": user.user_id,
+                    "nickname": user.nickname,
+                    "profile_image": getattr(user, "profile_image", None),
                 }
             }
         )
@@ -204,7 +204,7 @@ async def update_password(user_id: int, request: Request, db: Session):
         if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
-        if user["password"] != current_password:
+        if user.password != current_password:
             raise HTTPException(status_code=400, detail="invalid_password")
 
         user = user_model.update_user_password(db, user, new_password)

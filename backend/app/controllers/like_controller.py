@@ -17,7 +17,9 @@ async def create_like(request: Request, db: Session):
         if not post_id or not user_id:
             raise HTTPException(status_code=400, detail="invalid_like_create_request")
 
-        if not post_model.get_post_by_id(db, post_id) or not user_model.get_user_by_id(db, user_id):
+        post = post_model.get_post_by_id(db, post_id)
+        user = user_model.get_user_by_id(db, user_id)
+        if not post or not user:
             raise HTTPException(status_code=400, detail="invalid_like_create_request")
 
         session_user_id = request.session.get("user_id")
@@ -32,14 +34,14 @@ async def create_like(request: Request, db: Session):
         if like_for_me:
             raise HTTPException(status_code=400, detail="invalid_like_create_request")
         
-        like = like_model.create_like(post_id, user_id)
+        like = like_model.create_like(db, post_id, user_id)
         post = post_model.update_likes(db, post, 1)
 
         return JSONResponse(
             status_code=200,
             content={
                 "detail": "like_create_success",
-                "data": {"like_id": like["like_id"]},
+                "data": {"like_id": like.like_id},
             },
         )
     except HTTPException:
@@ -55,15 +57,19 @@ async def delete_like(like_id: int, request: Request, db: Session):
         like = like_model.get_like_by_id(db, like_id)
         if not like:
             raise HTTPException(status_code=404, detail="like_not_found")
+        
+        post = post_model.get_post_by_id(db, like.post_id)
+        if not post:
+            raise HTTPException(status_code=400, detail="invalid_like_delete_request")
 
         session_user_id = request.session.get("user_id")
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        if like["user_id"] != session_user_id:
+        if like.user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
-        like_model.delete_like(like_id)
+        like_model.delete_like(db, like_id)
         post = post_model.update_likes(db, post, -1)
 
         return JSONResponse(status_code=200, content={"detail": "like_delete_success"})

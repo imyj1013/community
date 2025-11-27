@@ -17,20 +17,20 @@ async def list_posts(cursor_id: int, count: int, db: Session):
     try:
         filtered = post_model.get_post_list_by_id(db, cursor_id)
         sliced = filtered[:count]
-        next_cursor = sliced[-1]["post_id"] if sliced else cursor_id
+        next_cursor = sliced[-1].post_id if sliced else cursor_id
 
         data_list = []
         for p in sliced:
             data_list.append(
                 {
-                    "post_id": p["post_id"],
-                    "title": p["title"][:26],
-                    "author_nickname": p["author_nickname"],
-                    "created_at": p["created_at"],
-                    "summary": p["summary"],
-                    "views": utils.format_number(p["views"]),
-                    "comments_count": utils.format_number(p["comments_count"]),
-                    "likes": utils.format_number(p["likes"]),
+                    "post_id": p.post_id,
+                    "title": p.title,
+                    "author_nickname": p.author_nickname,
+                    "created_at": p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else None,
+                    "summary": p.summary,
+                    "views": utils.format_number(p.views),
+                    "comments_count": utils.format_number(p.comments_count),
+                    "likes": utils.format_number(p.likes),
                 }
             )
         return JSONResponse(
@@ -75,11 +75,11 @@ async def create_post(request: Request, db: Session):
         summary_ids = model.generate(**inputs, max_length=200)
         summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         
-        post = post_model.create_post(db, user_id, title, content, summary, image_url, user["nickname"])
+        post = post_model.create_post(db, user_id, title, content, summary, image_url, user.nickname)
 
         return JSONResponse(
             status_code=201,
-            content={"detail": "post_create_success", "data": {"post_id": post["post_id"]}},
+            content={"detail": "post_create_success", "data": {"post_id": post.post_id}},
         )
     except HTTPException:
         raise
@@ -113,7 +113,7 @@ async def update_post(post_id: int, request: Request, db: Session):
         if not user:
             raise HTTPException(status_code=400, detail="invalid_post_update_request")
 
-        if post["user_id"] != request.session["user_id"]:
+        if post.user_id != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
         inputs = tokenizer(content, return_tensors="pt")
@@ -149,37 +149,37 @@ async def get_post_detail(post_id: int, request: Request, db: Session):
 
         comments_json = []
         for c in post_comments:
-            author = user_model.get_user_by_id(db, c["user_id"])
-            nickname = author["nickname"] if author else "unknown"
+            author = user_model.get_user_by_id(db, c.user_id)
+            nickname = author.nickname if author else "unknown"
             comments_json.append(
                 {
-                    "comment_id": c["comment_id"],
-                    "content": c["content"],
+                    "comment_id": c.comment_id,
+                    "content": c.content,
                     "author_nickname": nickname,
-                    "created_at": c["created_at"],
+                    "created_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else None,
                 }
             )
 
-        post["views"] += 1
+        post_model.update_views(db, post)
 
         return JSONResponse(
             status_code=200,
             content={
                 "detail": "post_detail_success",
                 "data": {
-                    "post_id": post["post_id"],
-                    "title": post["title"],
-                    "content": post["content"],
-                    "image_url": post["image_url"],
-                    "author_nickname": post["author_nickname"],
-                    "created_at": post["created_at"],
-                    "updated_at": post["updated_at"],
-                    "views": post["views"],
-                    "likes": post["likes"],
-                    "comments_count": post["comments_count"],
+                    "post_id": post.post_id,
+                    "title": post.title,
+                    "content": post.content,
+                    "image_url": getattr(post, "image_url", None),
+                    "author_nickname": post.author_nickname,
+                    "created_at": post.created_at.strftime("%Y-%m-%d %H:%M:%S") if post.created_at else None,
+                    "updated_at": post.created_at.strftime("%Y-%m-%d %H:%M:%S") if post.created_at else None,
+                    "views": post.views,
+                    "likes": post.likes,
+                    "comments_count": post.comments_count,
                     "comments": comments_json,
                     "is_liked_by_me": like_for_me is not None,
-                    "like_id": like_for_me["like_id"] if like_for_me else None,
+                    "like_id": like_for_me.like_id if like_for_me else None,
                 },
             },
         )
@@ -201,7 +201,7 @@ async def delete_post(post_id: int, request: Request, db: Session):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        if post["user_id"] != request.session["user_id"]:
+        if post.user_id != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
         post_model.delete_post(db, post_id)

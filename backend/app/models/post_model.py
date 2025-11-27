@@ -44,6 +44,14 @@ def delete_post(db: Session, post_id:int):
     db.commit()
     return
 
+def update_views(db: Session, post):
+    post.views = (post.views or 0) + 1
+    if post.views < 0:
+        post.views = 0
+    db.commit()
+    db.refresh(post)
+    return post
+
 def update_likes(db: Session, post, count):
     post.likes = (post.likes or 0) + count
     if post.likes < 0:

@@ -12,25 +12,14 @@ def create_user(db: Session, email: str, password: str, nickname: str, profile_i
     db.add(user)
     db.commit()
     db.refresh(user)
-    return {
-        "user_id": user.user_id,
-        "email": user.email,
-        "nickname": user.nickname,
-        "profile_image": user.profile_image
-    }
+    return user
 
 def get_user_by_email(db: Session, email: str):
     user = db.query(User).filter(User.email == email).first()
     if not user:
         return None
     
-    return {
-        "user_id": user.user_id,
-        "email": user.email,
-        "nickname": user.nickname,
-        "password": user.password,
-        "profile_image": user.profile_image,
-    }
+    return db.query(User).filter(User.email == email).first()
 
 def get_user_by_nickname(db: Session, nickname: str):
     return db.query(User).filter(User.nickname == nickname).first()
@@ -39,9 +28,9 @@ def get_user_by_id(db: Session, user_id: int):
     return db.query(User).filter(User.user_id == user_id).first()
 
 def update_user_profile(db: Session, user: User, nickname: str, profile_image: str | None):
-    user["nickname"] = nickname
+    user.nickname = nickname
     if profile_image is not None:
-        user["profile_image"] = profile_image
+        user.profile_image = profile_image
     db.commit()
     db.refresh(user)
     return user
