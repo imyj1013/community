@@ -1,11 +1,13 @@
 from app import db
 from sqlalchemy.orm import Session
 from app.entity.user_entity import User
+from .. import utils
 
 def create_user(db: Session, email: str, password: str, nickname: str, profile_image: str | None):
+    hashed_pwd = utils.hash_password(password)
     user = User(
         email=email,
-        password=password,
+        password=hashed_pwd,
         nickname=nickname,
         profile_image=profile_image,
     )

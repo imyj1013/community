@@ -12,6 +12,10 @@ SQLAlchemy==2.0.25
 pymysql==1.1.0
 # python-dotenv==1.0.1  # 환경변수(.env) 로딩
 
+# --- Password hashing ---
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+
 # --- Hugging Face 모델 로딩 & 실행을 위한 패키지 ---
 transformers==4.40.2
 huggingface_hub==0.22.2

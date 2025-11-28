@@ -21,7 +21,7 @@ async def login(request: Request, db: Session):
             raise HTTPException(status_code=400, detail="invalid_login_request")
 
         user = user_model.get_user_by_email(db, email)        
-        if not user or user.password != password:
+        if not user or not utils.verify_password(password, user.password):
             raise HTTPException(status_code=401, detail="login_invalid_email_or_pwd")
 
         session_id = request.session.get("sessionID")
