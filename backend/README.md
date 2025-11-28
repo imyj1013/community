@@ -11,7 +11,7 @@ pip install -r requirements.txt
 ```
 # fast api
 ```
-uvicorn backend.app.main:app --reload
+uvicorn app.main:app --reload
 ```
 # download model
 ```

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, UploadFile, File
 from sqlalchemy.orm import Session
 from ..controllers import user_controller as uc
 from app.db import get_db
@@ -36,3 +36,7 @@ async def logout(user_id: int, request: Request, db: Session = Depends(get_db)):
 @router.delete("/user/{user_id}")
 async def delete_user(user_id: int, request: Request, db: Session = Depends(get_db)):
     return await uc.delete_user(user_id, request, db)
+
+@router.post("/image")
+async def upload_image(file: UploadFile = File(...)):
+    return await uc.upload_image(file)

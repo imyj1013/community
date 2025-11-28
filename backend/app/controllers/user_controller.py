@@ -1,6 +1,8 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from pathlib import Path
+import os
 import uuid
 from . import __init__ as _
 from .. import utils
@@ -18,11 +20,8 @@ async def login(request: Request, db: Session):
         if not email or not password:
             raise HTTPException(status_code=400, detail="invalid_login_request")
 
-        user = user_model.get_user_by_email(db, email)
-        if not user:
-            raise HTTPException(status_code=400, detail="invalid_login_request")
-        
-        if user.password != password:
+        user = user_model.get_user_by_email(db, email)        
+        if not user or user.password != password:
             raise HTTPException(status_code=401, detail="login_invalid_email_or_pwd")
 
         session_id = request.session.get("sessionID")
@@ -262,3 +261,41 @@ async def delete_user(user_id: int, request: Request, db: Session):
     except:
         raise HTTPException(status_code=500, detail="internal_server_error")
 
+
+async def upload_image (file):
+    if not file:
+        raise HTTPException(status_code=400, detail="invalid_image_upload_request")
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="invalid_image_upload_request")
+    try:
+        PROJECT_ROOT = Path(__file__).resolve().parents[3]
+        IMAGE_DIR = PROJECT_ROOT / "image"
+
+        original_name = file.filename or ""
+        ext = os.path.splitext(original_name)[1].lower()
+
+        unique_name = f"{uuid.uuid4().hex}{ext}"
+        save_path = IMAGE_DIR / unique_name
+
+        with save_path.open("wb") as buffer:
+            while True:
+                chunk = await file.read(1024 * 1024)  # 1MB씩
+                if not chunk:
+                    break
+                buffer.write(chunk)
+
+        public_path = f"/image/{unique_name}"
+
+        return JSONResponse(
+            status_code=201,
+            content={
+                "detail": "image_upload_success",
+                "data": {
+                    "file_path": public_path
+                },
+            },
+        )
+    except HTTPException:
+        raise
+    except:
+        raise HTTPException(status_code=500, detail="internal_server_error")                 
