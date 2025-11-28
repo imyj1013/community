@@ -10,7 +10,7 @@ aiofiles==24.1.0
 # --- Database ---
 SQLAlchemy==2.0.25
 pymysql==1.1.0
-# python-dotenv==1.0.1  # 환경변수(.env) 로딩
+python-dotenv==1.0.1
 
 # --- Password hashing ---
 passlib[bcrypt]==1.7.4

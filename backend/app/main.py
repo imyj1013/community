@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -6,12 +7,16 @@ from .routers.user_routes import router as user_router
 from .routers.post_routes import router as post_router
 from .routers.comment_routes import router as comment_router
 from .routers.like_routes import router as like_router
+from dotenv import load_dotenv
+
+load_dotenv()
+SECRET_KEY = os.getenv("SESSION_SECRET_KEY")
 
 app = FastAPI(title="Community API - Route/Controller")
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key="yourSecretKey",
+    secret_key="SECRET_KEY",
     max_age=24 * 60 * 60,
     same_site="lax",
     https_only=False,
