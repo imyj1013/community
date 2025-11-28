@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.env
+
+# Environment
+.env
+env/
+venv/
+ENV/
+env_community/
+
+# Backend AI or model files
+backend/ai/
+backend/.env
+
+# Cache and build directories
+backend/app/__pycache__/
+backend/app/controllers/__pycache__/
+backend/app/entity/__pycache__/
+backend/app/models/__pycache__/
+backend/app/routers/__pycache__/
+
+# Images / uploads
+image/
+
+# MacOS system files
+.DS_Store
+
+# Logs
+*.log
