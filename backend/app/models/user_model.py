@@ -1,4 +1,3 @@
-from app import db
 from sqlalchemy.orm import Session
 from app.entity.user_entity import User
 from .. import utils
