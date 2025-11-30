@@ -1,6 +1,6 @@
-from fastapi import Request, HTTPException
+from fastapi import Request, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
 import os
 import uuid
@@ -8,7 +8,7 @@ from . import __init__ as _
 from .. import utils
 from ..models import user_model
 
-async def login(request: Request, db: Session):
+async def login(request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -20,8 +20,8 @@ async def login(request: Request, db: Session):
         if not email or not password:
             raise HTTPException(status_code=400, detail="invalid_login_request")
 
-        user = user_model.get_user_by_email(db, email)        
-        if not user or not utils.verify_password(password, user.password):
+        user = await user_model.get_user_by_email(db, email)        
+        if not user or not await utils.verify_password_async(password, user.password):
             raise HTTPException(status_code=401, detail="login_invalid_email_or_pwd")
 
         session_id = request.session.get("sessionID")
@@ -51,7 +51,7 @@ async def login(request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
         
 
-async def signup(request: Request, db: Session):
+async def signup(request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -71,10 +71,12 @@ async def signup(request: Request, db: Session):
         if not utils.nickname_is_valid(nickname):
             raise HTTPException(status_code=400, detail="invalid_signup_request")
 
-        if user_model.get_user_by_email(db, email):
+        if await user_model.get_user_by_email(db, email):
             raise HTTPException(status_code=400, detail="invalid_signup_request")
 
-        user = user_model.create_user(db, email, password, nickname, profile_image)
+        hashed_password = await utils.hash_password_async(password)
+
+        user = await user_model.create_user(db, email, hashed_password, nickname, profile_image)
 
         return JSONResponse(
             status_code=201,
@@ -91,11 +93,11 @@ async def signup(request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def check_email(email: str, db: Session):
+async def check_email(email: str, db: AsyncSession):
     try:
         valid = utils.email_is_valid(email)
         if valid == True:
-            exists = user_model.get_user_by_email(db, email) is not None
+            exists = await user_model.get_user_by_email(db, email) is not None
             return JSONResponse(
                 status_code=200,
                 content={
@@ -114,11 +116,11 @@ async def check_email(email: str, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def check_nickname(nickname: str, db: Session):
+async def check_nickname(nickname: str, db: AsyncSession):
     try:
         valid = utils.nickname_is_valid(nickname)
-        if valid == True:
-            exists = user_model.get_user_by_nickname(db, nickname) is not None
+        if valid:
+            exists = await user_model.get_user_by_nickname(db, nickname) is not None
             return JSONResponse(
                 status_code=200,
                 content={
@@ -137,7 +139,7 @@ async def check_nickname(nickname: str, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def update_me(user_id: int, request: Request, db: Session):
+async def update_me(user_id: int, request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -153,14 +155,14 @@ async def update_me(user_id: int, request: Request, db: Session):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
         
-        user = user_model.get_user_by_id(db, user_id)
+        user = await user_model.get_user_by_id(db, user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_profile_update_request")
         
         if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
-        user = user_model.update_user_profile(db, user, nickname, profile_image)
+        user = await user_model.update_user_profile(db, user, nickname, profile_image)
 
         return JSONResponse(
             status_code=200,
@@ -179,7 +181,7 @@ async def update_me(user_id: int, request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def update_password(user_id: int, request: Request, db: Session):
+async def update_password(user_id: int, request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -196,17 +198,19 @@ async def update_password(user_id: int, request: Request, db: Session):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
         
-        user = user_model.get_user_by_id(db, user_id)
+        user = await user_model.get_user_by_id(db, user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_password_update_request")
         
         if user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
-        if user.password != current_password:
+        if not await utils.verify_password_async(current_password, user.password):
             raise HTTPException(status_code=400, detail="invalid_password")
+        
+        hashed_new_password = await utils.hash_password_async(new_password)
 
-        user = user_model.update_user_password(db, user, new_password)
+        await user_model.update_user_password(db, user, hashed_new_password)
         return JSONResponse(status_code=200, content={"detail": "password_update_success"})
     except HTTPException:
         raise
@@ -214,9 +218,9 @@ async def update_password(user_id: int, request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def logout(user_id: int, request: Request, db: Session):
+async def logout(user_id: int, request: Request, db: AsyncSession):
     try:
-        if not user_model.get_user_by_id(db, user_id):
+        if not await user_model.get_user_by_id(db, user_id):
             raise HTTPException(status_code=400, detail="invalid_logout_request")
     
         session_email = request.session.get("email")
@@ -237,9 +241,9 @@ async def logout(user_id: int, request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def delete_user(user_id: int, request: Request, db: Session):
+async def delete_user(user_id: int, request: Request, db: AsyncSession):
     try:
-        if not user_model.get_user_by_id(db, user_id):
+        if not await user_model.get_user_by_id(db, user_id):
             raise HTTPException(status_code=400, detail="invalid_user_delete_request")
     
         session_email = request.session.get("email")
@@ -254,7 +258,7 @@ async def delete_user(user_id: int, request: Request, db: Session):
         
         request.session.clear()
         
-        user_model.delete_user(db, user_id)
+        await user_model.delete_user(db, user_id)
         return JSONResponse(status_code=200, content={"detail": "user_delete_success"})
     except HTTPException:
         raise
@@ -262,7 +266,7 @@ async def delete_user(user_id: int, request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def upload_image (file):
+async def upload_image (file: UploadFile):
     if not file:
         raise HTTPException(status_code=400, detail="invalid_image_upload_request")
     if not file.content_type.startswith("image/"):

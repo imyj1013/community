@@ -1,7 +1,8 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.entity.post_entity import Post
+from sqlalchemy import select, delete
 
-def create_post(db: Session, user_id, title, content, summary, image_url, nickname):
+async def create_post(db: AsyncSession, user_id, title, content, summary, image_url, nickname):
     post = Post(
         user_id=user_id,
         title=title,
@@ -14,55 +15,53 @@ def create_post(db: Session, user_id, title, content, summary, image_url, nickna
         likes=0,
     )
     db.add(post)
-    db.commit()
-    db.refresh(post)
+    await db.commit()
+    await db.refresh(post)
     return post
 
-def get_post_by_id(db: Session, post_id: int):
-    return db.query(Post).filter(Post.post_id == post_id).first()
+async def get_post_by_id(db: AsyncSession, post_id: int):
+    result = await db.execute(select(Post).where(Post.post_id == post_id))
+    return result.scalars().first()
 
-def get_post_list_by_id(db: Session, cursor_id: int):
-    return (
-        db.query(Post)
-        .filter(Post.post_id > cursor_id)
-        .order_by(Post.post_id.asc())
-        .all()
-    )
 
-def update_post(db: Session, post, title, content, summary, image_url):
+async def get_post_list_by_id(db: AsyncSession, cursor_id: int):
+    result = await db.execute(select(Post).where(Post.post_id > cursor_id).order_by(Post.post_id.asc()))
+    return result.scalars().all()
+
+async def update_post(db: AsyncSession, post, title, content, summary, image_url):
     post.title = title
     post.content = content
     post.summary = summary
     post.image_url = image_url
-    db.commit()
-    db.refresh(post)
+    await db.commit()
+    await db.refresh(post)
     return post
 
-def delete_post(db: Session, post_id:int):
-    db.query(Post).filter(Post.post_id == post_id).delete(synchronize_session=False)
-    db.commit()
+async def delete_post(db: AsyncSession, post_id:int):
+    await db.execute(delete(Post).where(Post.post_id == post_id))
+    await db.commit()
     return
 
-def update_views(db: Session, post):
+async def update_views(db: AsyncSession, post):
     post.views = (post.views or 0) + 1
     if post.views < 0:
         post.views = 0
-    db.commit()
-    db.refresh(post)
+    await db.commit()
+    await db.refresh(post)
     return post
 
-def update_likes(db: Session, post, count):
+async def update_likes(db: AsyncSession, post, count):
     post.likes = (post.likes or 0) + count
     if post.likes < 0:
         post.likes = 0
-    db.commit()
-    db.refresh(post)
+    await db.commit()
+    await db.refresh(post)
     return post
 
-def update_comments_count(db: Session, post, count):
+async def update_comments_count(db: AsyncSession, post, count):
     post.comments_count = (post.comments_count or 0) + count
     if post.comments_count < 0:
         post.comments_count = 0
-    db.commit()
-    db.refresh(post)
+    await db.commit()
+    await db.refresh(post)
     return post

@@ -16,7 +16,7 @@ app = FastAPI(title="Community API - Route/Controller")
 
 app.add_middleware(
     SessionMiddleware,
-    secret_key="SECRET_KEY",
+    secret_key=SECRET_KEY,
     max_age=24 * 60 * 60,
     same_site="lax",
     https_only=False,

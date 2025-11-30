@@ -8,8 +8,8 @@ python-multipart==0.0.9
 aiofiles==24.1.0
 
 # --- Database ---
-SQLAlchemy==2.0.25
-pymysql==1.1.0
+sqlalchemy[asyncio]==2.0.25
+asyncmy==0.2.9 
 python-dotenv==1.0.1
 
 # --- Password hashing ---

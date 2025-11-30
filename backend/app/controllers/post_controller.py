@@ -1,6 +1,6 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from . import __init__ as _
 from .. import utils
 from ..models import user_model, post_model, comment_model, like_model
@@ -11,11 +11,11 @@ model_path = "./ai/kobart-summary-v3"
 tokenizer = AutoTokenizer.from_pretrained(model_path)
 model = AutoModelForSeq2SeqLM.from_pretrained(model_path)
 
-async def list_posts(cursor_id: int, count: int, db: Session):
+async def list_posts(cursor_id: int, count: int, db: AsyncSession):
     if count <= 0 or cursor_id < 0:
         raise HTTPException(status_code=400, detail="invalid_posts_list_request")
     try:
-        filtered = post_model.get_post_list_by_id(db, cursor_id)
+        filtered = await post_model.get_post_list_by_id(db, cursor_id)
         sliced = filtered[:count]
         next_cursor = sliced[-1].post_id if sliced else cursor_id
 
@@ -46,7 +46,7 @@ async def list_posts(cursor_id: int, count: int, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def create_post(request: Request, db: Session):
+async def create_post(request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -75,7 +75,7 @@ async def create_post(request: Request, db: Session):
         summary_ids = model.generate(**inputs, max_length=200)
         summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         
-        post = post_model.create_post(db, user_id, title, content, summary, image_url, user.nickname)
+        post = await post_model.create_post(db, user_id, title, content, summary, image_url, user.nickname)
 
         return JSONResponse(
             status_code=201,
@@ -87,7 +87,7 @@ async def create_post(request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def update_post(post_id: int, request: Request, db: Session):
+async def update_post(post_id: int, request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -101,7 +101,7 @@ async def update_post(post_id: int, request: Request, db: Session):
         if not user_id or not title or not content:
             raise HTTPException(status_code=400, detail="invalid_post_update_request")
 
-        post = post_model.get_post_by_id(db, post_id)
+        post = await post_model.get_post_by_id(db, post_id)
         if not post:
             raise HTTPException(status_code=404, detail="post_not_found")
 
@@ -109,7 +109,7 @@ async def update_post(post_id: int, request: Request, db: Session):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        user = user_model.get_user_by_id(db, user_id)
+        user = await user_model.get_user_by_id(db, user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_post_update_request")
 
@@ -120,7 +120,7 @@ async def update_post(post_id: int, request: Request, db: Session):
         summary_ids = model.generate(**inputs, max_length=200)
         summary = tokenizer.decode(summary_ids[0], skip_special_tokens=True)
         
-        post = post_model.update_post(db, post, title, content, summary, image_url)
+        post = await post_model.update_post(db, post, title, content, summary, image_url)
 
         return JSONResponse(
             status_code=200,
@@ -132,11 +132,11 @@ async def update_post(post_id: int, request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def get_post_detail(post_id: int, request: Request, db: Session):
+async def get_post_detail(post_id: int, request: Request, db: AsyncSession):
     if post_id < 0:
         raise HTTPException(status_code=400, detail="invalid_posts_detail_request")
 
-    post = post_model.get_post_by_id(db, post_id)
+    post = await post_model.get_post_by_id(db, post_id)
     if not post:
         raise HTTPException(status_code=404, detail="post_not_found")
     try:
@@ -144,8 +144,8 @@ async def get_post_detail(post_id: int, request: Request, db: Session):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        post_comments = comment_model.get_comment_by_post_id(db, post_id)
-        like_for_me = like_model.get_my_like(db, post_id, session_user_id)
+        post_comments = await comment_model.get_comment_by_post_id(db, post_id)
+        like_for_me = await like_model.get_my_like(db, post_id, session_user_id)
 
         comments_json = []
         for c in post_comments:
@@ -160,7 +160,7 @@ async def get_post_detail(post_id: int, request: Request, db: Session):
                 }
             )
 
-        post_model.update_views(db, post)
+        await post_model.update_views(db, post)
 
         return JSONResponse(
             status_code=200,
@@ -189,11 +189,11 @@ async def get_post_detail(post_id: int, request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def delete_post(post_id: int, request: Request, db: Session):
+async def delete_post(post_id: int, request: Request, db: AsyncSession):
     if post_id < 0:
         raise HTTPException(status_code=400, detail="invalid_post_delete_request")
 
-    post = post_model.get_post_by_id(db, post_id)
+    post = await post_model.get_post_by_id(db, post_id)
     if not post:
         raise HTTPException(status_code=404, detail="post_not_found")
     try:
@@ -204,7 +204,7 @@ async def delete_post(post_id: int, request: Request, db: Session):
         if post.user_id != request.session["user_id"]:
             raise HTTPException(status_code=403, detail="forbidden_user")
         
-        post_model.delete_post(db, post_id)
+        await post_model.delete_post(db, post_id)
         return JSONResponse(status_code=200, content={"detail": "post_delete_success"})
     except HTTPException:
         raise

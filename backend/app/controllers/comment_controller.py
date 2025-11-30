@@ -1,10 +1,10 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from . import __init__ as _
 from ..models import user_model, post_model, comment_model
 
-async def create_comment(request: Request, db: Session):
+async def create_comment(request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -17,8 +17,8 @@ async def create_comment(request: Request, db: Session):
         if not post_id or not user_id or not content:
             raise HTTPException(status_code=400, detail="invalid_comment_create_request")
         
-        post = post_model.get_post_by_id(db, post_id)
-        user = user_model.get_user_by_id(db, user_id)
+        post = await post_model.get_post_by_id(db, post_id)
+        user = await user_model.get_user_by_id(db, user_id)
         if not post or not user:
             raise HTTPException(status_code=400, detail="invalid_comment_create_request")
 
@@ -29,8 +29,8 @@ async def create_comment(request: Request, db: Session):
         if user_id != session_user_id:
             raise HTTPException(status_code=400, detail="invalid_comment_create_request")
 
-        comment = comment_model.create_comment(db, post_id, user_id, content)
-        post = post_model.update_comments_count(db, post, 1)
+        comment = await comment_model.create_comment(db, post_id, user_id, content)
+        post = await post_model.update_comments_count(db, post, 1)
 
         return JSONResponse(
             status_code=201,
@@ -45,7 +45,7 @@ async def create_comment(request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def update_comment(comment_id: int, request: Request, db: Session):
+async def update_comment(comment_id: int, request: Request, db: AsyncSession):
     try:
         body = await request.json()
     except Exception:
@@ -55,7 +55,7 @@ async def update_comment(comment_id: int, request: Request, db: Session):
         if not content:
             raise HTTPException(status_code=400, detail="invalid_comment_update_request")
 
-        comment = comment_model.get_comment_by_id(db, comment_id)
+        comment = await comment_model.get_comment_by_id(db, comment_id)
         if not comment:
             raise HTTPException(status_code=404, detail="comment_not_found")
 
@@ -66,7 +66,7 @@ async def update_comment(comment_id: int, request: Request, db: Session):
         if comment.user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
-        comment = comment_model.update_comment(db, comment, content)
+        comment = await comment_model.update_comment(db, comment, content)
 
         return JSONResponse(
             status_code=200,
@@ -81,15 +81,15 @@ async def update_comment(comment_id: int, request: Request, db: Session):
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
-async def delete_comment(comment_id: int, request: Request, db: Session):
+async def delete_comment(comment_id: int, request: Request, db: AsyncSession):
     if comment_id < 0:
         raise HTTPException(status_code=400, detail="invalid_comment_delete_request")
     try:
-        comment = comment_model.get_comment_by_id(db, comment_id)
+        comment = await comment_model.get_comment_by_id(db, comment_id)
         if not comment:
             raise HTTPException(status_code=404, detail="comment_not_found")
 
-        post = post_model.get_post_by_id(db, comment.post_id)
+        post = await post_model.get_post_by_id(db, comment.post_id)
         if not post:
             raise HTTPException(status_code=400, detail="invalid_comment_delete_request")
 
@@ -100,8 +100,8 @@ async def delete_comment(comment_id: int, request: Request, db: Session):
         if comment.user_id != session_user_id:
             raise HTTPException(status_code=403, detail="forbidden_user")
 
-        comment_model.delete_comment(db, comment_id)
-        post = post_model.update_comments_count(db, post, -1)
+        await comment_model.delete_comment(db, comment_id)
+        post = await post_model.update_comments_count(db, post, -1)
 
         return JSONResponse(status_code=200, content={"detail": "comment_delete_success"})
     except HTTPException:

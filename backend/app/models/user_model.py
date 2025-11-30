@@ -1,50 +1,50 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.entity.user_entity import User
-from .. import utils
+from sqlalchemy import select
 
-def create_user(db: Session, email: str, password: str, nickname: str, profile_image: str | None):
-    hashed_pwd = utils.hash_password(password)
+async def create_user(db: AsyncSession, email: str, password: str, nickname: str, profile_image: str | None):
     user = User(
         email=email,
-        password=hashed_pwd,
+        password=password,
         nickname=nickname,
         profile_image=profile_image,
     )
     db.add(user)
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
-def get_user_by_email(db: Session, email: str):
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        return None
-    
-    return db.query(User).filter(User.email == email).first()
+async def get_user_by_email(db: AsyncSession, email: str):
+    stmt = select(User).where(User.email == email)
+    result = await db.execute(stmt)
+    return result.scalars().first()
 
-def get_user_by_nickname(db: Session, nickname: str):
-    return db.query(User).filter(User.nickname == nickname).first()
+async def get_user_by_nickname(db: AsyncSession, nickname: str):
+    stmt = select(User).where(User.nickname == nickname)
+    result = await db.execute(stmt)
+    return result.scalars().first()
+async def get_user_by_id(db: AsyncSession, user_id: int):
+    stmt = select(User).where(User.user_id == user_id)
+    result = await db.execute(stmt)
+    return result.scalars().first()
 
-def get_user_by_id(db: Session, user_id: int):
-    return db.query(User).filter(User.user_id == user_id).first()
-
-def update_user_profile(db: Session, user: User, nickname: str, profile_image: str | None):
+async def update_user_profile(db: AsyncSession, user: User, nickname: str, profile_image: str | None):
     user.nickname = nickname
     if profile_image is not None:
         user.profile_image = profile_image
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
-def update_user_password(db: Session, user: User, new_password: str):
+async def update_user_password(db: AsyncSession, user: User, new_password: str):
     user.password = new_password
-    db.commit()
-    db.refresh(user)
+    await db.commit()
+    await db.refresh(user)
     return user
 
-def delete_user(db: Session, user_id: int):
+async def delete_user(db: AsyncSession, user_id: int):
     user = get_user_by_id(db, user_id)
     if user is None:
         return
-    db.delete(user)
-    db.commit()
+    await db.delete(user)
+    await db.commit()
