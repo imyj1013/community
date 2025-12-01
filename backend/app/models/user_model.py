@@ -23,6 +23,7 @@ async def get_user_by_nickname(db: AsyncSession, nickname: str):
     stmt = select(User).where(User.nickname == nickname)
     result = await db.execute(stmt)
     return result.scalars().first()
+
 async def get_user_by_id(db: AsyncSession, user_id: int):
     stmt = select(User).where(User.user_id == user_id)
     result = await db.execute(stmt)
@@ -30,8 +31,7 @@ async def get_user_by_id(db: AsyncSession, user_id: int):
 
 async def update_user_profile(db: AsyncSession, user: User, nickname: str, profile_image: str | None):
     user.nickname = nickname
-    if profile_image is not None:
-        user.profile_image = profile_image
+    user.profile_image = profile_image
     await db.commit()
     await db.refresh(user)
     return user
@@ -43,7 +43,7 @@ async def update_user_password(db: AsyncSession, user: User, new_password: str):
     return user
 
 async def delete_user(db: AsyncSession, user_id: int):
-    user = get_user_by_id(db, user_id)
+    user = await get_user_by_id(db, user_id)
     if user is None:
         return
     await db.delete(user)

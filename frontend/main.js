@@ -1077,10 +1077,8 @@ function initProfileEditPage() {
 
     const payload = {
       nickname: nicknameInput.value.trim(),
+      profile_image: profileImagePath,
     };
-    if (profileImagePath) {
-      payload.profile_image = profileImagePath;
-    }
 
     try {
       const res = await fetch(
