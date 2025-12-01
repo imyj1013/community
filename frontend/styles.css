@@ -1,0 +1,472 @@
+:root {
+  --primary: #7f6aee;
+  --primary-disabled: #aca0eb;
+  --error: #ff4d4f;
+  --success: #28a745;
+  --border-gray: #d9d9d9;
+  --bg-gray: #f5f5f5;
+  --text-main: #222;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Noto Sans KR",
+    sans-serif;
+}
+
+body {
+  background: #b3b3b3;
+  min-height: 100vh;
+}
+
+.app-wrapper {
+  background: #f4f5f7;
+  max-width: 1440px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 공통 헤더 ---------- */
+
+.app-header {
+  height: 80px;
+  border-bottom: 1px solid #ccc;
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 0 40px;
+  background: #ffffff;
+}
+
+.app-header-title {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.header-back-btn {
+  font-size: 20px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+}
+
+/* 로그인/회원가입에는 프로필이 없을 수도 있음 */
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-profile {
+  position: relative;
+}
+
+.header-profile-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #eee;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.header-profile-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.header-profile-initial {
+  font-size: 16px;
+  font-weight: 600;
+  color: #555;
+}
+
+.header-profile-menu {
+  position: absolute;
+  top: 48px;
+  right: 0;
+  width: 140px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  padding: 6px 0;
+  z-index: 20;
+}
+
+.header-profile-menu.hidden {
+  display: none;
+}
+
+.header-profile-menu button {
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.header-profile-menu button:hover {
+  background: #f5f5f5;
+}
+
+/* ---------- 메인 ---------- */
+
+.app-main {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 80px;
+}
+
+.card {
+  width: 420px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 32px 40px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.card-title {
+  font-size: 24px;
+  font-weight: 700;
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+/* ---------- 폼 공통 ---------- */
+
+.form-group {
+  margin-bottom: 18px;
+}
+
+.form-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-gray);
+  font-size: 14px;
+  outline: none;
+}
+
+.form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px rgba(127, 106, 238, 0.2);
+}
+
+.form-input[disabled] {
+  background: #f5f5f5;
+  color: #888;
+}
+
+.helper-text {
+  margin-top: 4px;
+  font-size: 12px;
+  min-height: 16px;
+}
+
+.helper-error {
+  color: var(--error);
+}
+
+.helper-success {
+  color: var(--success);
+}
+
+/* ---------- 버튼 ---------- */
+
+.btn {
+  width: 100%;
+  border-radius: 999px;
+  padding: 10px 0;
+  margin-top: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--primary-disabled);
+  color: #ffffff;
+  cursor: not-allowed;
+}
+
+.btn-primary.active {
+  background: var(--primary);
+  cursor: pointer;
+}
+
+.btn-text {
+  background: none;
+  color: #555;
+  text-decoration: underline;
+}
+
+.btn-text:hover {
+  color: #333;
+}
+
+/* 게시글 작성 버튼 전용 */
+.btn-write {
+  width: 140px;
+  border-radius: 999px;
+  padding: 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  background: var(--primary-disabled);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.btn-write:hover {
+  background: var(--primary);
+}
+
+/* ---------- 프로필 이미지 업로드 ---------- */
+
+.profile-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.profile-circle {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 1px dashed var(--border-gray);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  background: #fafafa;
+}
+
+.profile-circle span {
+  font-size: 32px;
+  color: #999;
+}
+
+.profile-circle img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-helper {
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+/* ---------- 링크/행 ---------- */
+
+.link-row {
+  margin-top: 12px;
+  text-align: center;
+}
+
+.link-row button {
+  width: auto;
+}
+
+/* ---------- 게시글 목록 페이지 ---------- */
+
+.posts-container {
+  width: 720px;
+  margin-top: 40px;
+}
+
+.posts-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.posts-greeting {
+  text-align: center;
+  margin-bottom: 24px;
+  font-size: 16px;
+}
+
+.posts-greeting span {
+  font-weight: 700;
+}
+
+.posts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 40px;
+}
+
+.post-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+}
+
+.post-title {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.post-meta-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 6px;
+}
+
+.post-summary {
+  font-size: 13px;
+  color: #444;
+  margin-bottom: 8px;
+}
+
+.post-author-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #555;
+}
+
+.post-author-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ddd;
+}
+
+.posts-loading {
+  text-align: center;
+  padding: 16px;
+  font-size: 13px;
+  color: #777;
+}
+
+/* ---------- 토스트 ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%);
+  min-width: 260px;
+  padding: 14px 20px;
+  background: #333;
+  color: #fff;
+  border-radius: 999px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  z-index: 50;
+}
+
+.toast.hidden {
+  display: none;
+}
+
+.toast button {
+  border-radius: 999px;
+  padding: 6px 16px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+/* ---------- 탈퇴 모달 ---------- */
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+}
+
+.modal-backdrop.hidden {
+  display: none;
+}
+
+.modal {
+  width: 320px;
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 20px 24px 16px;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.modal-body {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 16px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-actions button {
+  border-radius: 999px;
+  padding: 6px 14px;
+  border: none;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.modal-btn-cancel {
+  background: #444;
+  color: #fff;
+}
+
+.modal-btn-confirm {
+  background: var(--primary);
+  color: #fff;
+}
