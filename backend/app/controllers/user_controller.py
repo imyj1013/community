@@ -289,6 +289,8 @@ async def upload_image (file: UploadFile):
                 buffer.write(chunk)
 
         public_path = f"/image/{unique_name}"
+        base_url = "http://localhost:8000"
+        public_path = base_url + public_path
 
         return JSONResponse(
             status_code=201,
