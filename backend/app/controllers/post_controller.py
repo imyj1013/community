@@ -2,7 +2,6 @@ from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from . import __init__ as _
-from .. import utils
 from ..models import user_model, post_model, comment_model, like_model
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 
@@ -28,9 +27,9 @@ async def list_posts(cursor_id: int, count: int, db: AsyncSession):
                     "author_nickname": p.author_nickname,
                     "created_at": p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else None,
                     "summary": p.summary,
-                    "views": utils.format_number(p.views),
-                    "comments_count": utils.format_number(p.comments_count),
-                    "likes": utils.format_number(p.likes),
+                    "views": p.views,
+                    "comments_count": p.comments_count,
+                    "likes": p.likes,
                 }
             )
         return JSONResponse(
