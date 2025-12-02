@@ -100,6 +100,12 @@ function initAuthedPage() {
   return user;
 }
 
+// 쿼리 파라미터 읽기 (?postId=1)
+function getQueryParam(name) {
+  const url = new URL(window.location.href);
+  return url.searchParams.get(name);
+}
+
 // ---------- 헤더 프로필/로그아웃 ----------
 
 function initHeaderWithProfile(user) {
@@ -722,7 +728,7 @@ function initPostsPage() {
   let hasMore = true;
 
   writeBtn.addEventListener("click", () => {
-    window.location.href = "post_write.html"; // 나중에 만들 페이지
+    window.location.href = "post_create.html"; // 나중에 만들 페이지
   });
 
   async function fetchPosts() {
@@ -777,7 +783,7 @@ function initPostsPage() {
         `;
 
         card.addEventListener("click", () => {
-          window.location.href = `post_detail.html?post_id=${post.post_id}`;
+          window.location.href = `post_detail.html?postId=${post.post_id}`;
         });
 
         listEl.appendChild(card);
@@ -884,7 +890,7 @@ function initProfileEditPage() {
     );
   }
 
-  function updateButton() {
+  function updateUserButton() {
     const can =
       nicknameValid && nicknameAvailable && nicknameInput.value.trim();
     setButtonActive(updateBtn, !!can);
@@ -902,7 +908,7 @@ function initProfileEditPage() {
         "닉네임을 입력해주세요",
         "error"
       );
-      updateButton();
+      updateUserButton();
       return;
     }
 
@@ -913,7 +919,7 @@ function initProfileEditPage() {
         "10자 이내, 띄어쓰기 불가",
         "error"
       );
-      updateButton();
+      updateUserButton();
       return;
     }
 
@@ -923,7 +929,7 @@ function initProfileEditPage() {
     if (value === user.nickname) {
       nicknameAvailable = true;
       setHelper(nicknameHelper, "", "");
-      updateButton();
+      updateUserButton();
       return;
     }
 
@@ -977,7 +983,7 @@ function initProfileEditPage() {
       );
     }
 
-    updateButton();
+    updateUserButton();
   });
 
   // 프로필 이미지 클릭/업로드
@@ -992,7 +998,7 @@ function initProfileEditPage() {
         "프로필 사진을 추가하세요.",
         "error"
       );
-      updateButton();
+      updateUserButton();
       return;
     }
     profileInput.click();
@@ -1061,7 +1067,7 @@ function initProfileEditPage() {
       );
     }
 
-    updateButton();
+    updateUserButton();
   });
 
   // 수정 완료 토스트에서 확인 누르면 목록으로
@@ -1156,7 +1162,7 @@ function initProfileEditPage() {
     }
   });
 
-  updateButton();
+  updateUserButton();
 }
 
 // ---------- 비밀번호 수정 페이지 ----------
@@ -1191,7 +1197,7 @@ function initPasswordEditPage() {
   let newValid = false;
   let confirmValid = false;
 
-  function updateBtnState() {
+  function updatePasswordState() {
     const can =
       currentValid && newValid && confirmValid;
     setButtonActive(updateBtn, can);
@@ -1209,7 +1215,7 @@ function initPasswordEditPage() {
       currentValid = true;
       setHelper(currentHelper, "");
     }
-    updateBtnState();
+    updatePasswordState();
   });
 
   newInput.addEventListener("blur", () => {
@@ -1233,7 +1239,7 @@ function initPasswordEditPage() {
       setHelper(newHelper, "");
     }
     validateConfirm();
-    updateBtnState();
+    updatePasswordState();
   });
 
   function validateConfirm() {
@@ -1262,7 +1268,7 @@ function initPasswordEditPage() {
 
   confirmInput.addEventListener("blur", () => {
     validateConfirm();
-    updateBtnState();
+    updatePasswordState();
   });
 
   updateBtn.addEventListener("click", async (e) => {
@@ -1304,7 +1310,7 @@ function initPasswordEditPage() {
             "error"
           );
           currentValid = false;
-          updateBtnState();
+          updatePasswordState();
           return;
         }
       }
@@ -1316,7 +1322,723 @@ function initPasswordEditPage() {
     }
   });
 
-  updateBtnState();
+  updatePasswordState();
+}
+
+
+// ---------------- 게시글 작성 페이지 ----------------
+
+function initCreatePostPage() {
+  const user = initAuthedPage();
+  if (!user) return;
+
+  const backBtn = document.getElementById("post-back-btn");
+  const titleInput = document.getElementById("post-title");
+  const contentInput = document.getElementById("post-content");
+  const mainHelper = document.getElementById("post-main-helper");
+  const imageInput = document.getElementById("post-image-input");
+  const imageHelper = document.getElementById("post-image-helper");
+  const submitBtn = document.getElementById("post-submit-btn");
+
+  let postImageUrl = null;
+  let titleFilled = false;
+  let contentFilled = false;
+
+  // 뒤로가기 -> 게시글 목록
+  if (backBtn) {
+    backBtn.addEventListener("click", () => {
+      window.location.href = "posts.html";
+    });
+  }
+
+  function updateMainHelper() {
+    if (!titleFilled || !contentFilled) {
+      mainHelper.textContent = "제목, 내용을 모두 작성해주세요.";
+      mainHelper.classList.remove("success");
+    } else {
+      mainHelper.textContent = "";
+    }
+  }
+
+  function updateSubmitButton() {
+    const canSubmit =titleFilled && contentFilled;
+    setButtonActive(submitBtn, canSubmit);
+  }
+
+  // 제목
+  titleInput.addEventListener("input", () => {
+    if (titleInput.value.length > 26) {
+      titleInput.value = titleInput.value.slice(0, 26);
+    }
+    titleFilled = titleInput.value.trim().length > 0;
+    updateMainHelper();
+    updateSubmitButton();
+  });
+
+  // 내용
+  contentInput.addEventListener("input", () => {
+    contentFilled = contentInput.value.trim().length > 0;
+    updateMainHelper();
+    updateSubmitButton();
+  });
+
+  // 이미지 업로드
+  imageInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      postImageUrl = null;
+      imageHelper.textContent = "파일을 선택해주세요.";
+      imageHelper.classList.remove("success");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    imageHelper.textContent = "이미지를 업로드 중입니다...";
+    imageHelper.classList.remove("success");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/image`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (res.status === 201) {
+        const data = await res.json();
+        if (data.data && data.data.file_path) {
+          postImageUrl = data.data.file_path;
+          setHelper(imageHelper, "", "");
+        } else {
+          postImageUrl = null;
+          setHelper(
+            imageHelper,
+            "이미지 업로드 중 오류가 발생했습니다.",
+            "error"
+          );
+        }
+      } else {
+        postImageUrl = null;
+        setHelper(
+          imageHelper,
+          "이미지 업로드 중 오류가 발생했습니다.",
+          "error"
+        );
+      }
+    } catch (err) {
+      postImageUrl = null;
+      setHelper(
+        imageHelper,
+        "이미지 업로드 중 오류가 발생했습니다.",
+        "error"
+      );
+    }
+  });
+
+  // 게시글 등록
+  submitBtn.addEventListener("click", async () => {
+    if (!titleFilled || !contentFilled) {
+      updateMainHelper();
+      return;
+    }
+
+    const payload = {
+      user_id: user.user_id,
+      title: titleInput.value.trim(),
+      content: contentInput.value.trim(),
+      image_url: postImageUrl,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/posts`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status === 201 && data.detail === "post_create_success") {
+        window.location.href = "posts.html";
+      } else {
+        console.error("post create error:", res.status, data);
+        alert("게시글 등록에 실패했습니다. (" + (data.detail || res.status) + ")");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("게시글 등록 중 오류가 발생했습니다.");
+    }
+  });
+
+  // 초기 상태 세팅
+  titleFilled = false;
+  contentFilled = false;
+  updateMainHelper();
+  updateSubmitButton();
+}
+
+// ---------- 게시글 수정 페이지 ----------
+async function initPostEditPage() {
+  const user = initAuthedPage();
+  if (!user) return;
+
+  const postId = getQueryParam("postId");
+  if (!postId) {
+    alert("잘못된 접근입니다.");
+    window.location.href = "posts.html";
+    return;
+  }
+
+  const backBtn = document.getElementById("edit-back-btn");
+  const titleInput = document.getElementById("edit-title");
+  const contentInput = document.getElementById("edit-content");
+  const mainHelper = document.getElementById("edit-main-helper");
+  const imageInput = document.getElementById("edit-image-input");
+  const imageHelper = document.getElementById("edit-image-helper");
+  const submitBtn = document.getElementById("edit-submit-btn");
+
+  backBtn.addEventListener("click", () => {
+    window.location.href = `post_detail.html?postId=${postId}`;
+  });
+
+  let imageUrl = null;
+  let titleFilled = false;
+  let contentFilled = false;
+
+  function updateMainHelper() {
+    if (!titleFilled || !contentFilled) {
+      mainHelper.textContent = "제목, 내용을 모두 작성해주세요.";
+      mainHelper.classList.remove("success");
+    } else {
+      mainHelper.textContent = "";
+    }
+  }
+
+  function updateSubmitButton() {
+    const canSubmit =titleFilled && contentFilled;
+    setButtonActive(submitBtn, canSubmit);
+  }
+
+  titleInput.addEventListener("input", () => {
+    if (titleInput.value.length > 26) {
+      titleInput.value = titleInput.value.slice(0, 26);
+    }
+    titleFilled = titleInput.value.trim().length > 0;
+    updateMainHelper();
+    updateSubmitButton();
+  });
+
+  contentInput.addEventListener("input", () => {
+    contentFilled = contentInput.value.trim().length > 0;
+    updateMainHelper();
+    updateSubmitButton();
+  });
+
+  // 기존 게시글 정보 가져오기
+  async function fetchPost() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.status !== 200 || data.detail !== "post_detail_success") {
+        alert("게시글 정보를 불러오지 못했습니다.");
+        window.location.href = "posts.html";
+        return;
+      }
+      const post = data.data;
+      titleInput.value = post.title;
+      contentInput.value = post.content;
+      imageUrl = post.image_url || null;
+
+      titleFilled = !!post.title;
+      contentFilled = !!post.content;
+      updateMainHelper();
+      updateSubmitButton();
+
+      if (imageUrl) {
+        imageHelper.textContent = `현재 이미지가 등록되어 있습니다. (변경 시 새 파일을 선택하세요)`;
+      } else {
+        imageHelper.textContent = "파일을 선택해주세요.";
+      }
+    } catch (err) {
+      console.error(err);
+      alert("게시글 정보를 불러오지 못했습니다.");
+      window.location.href = "posts.html";
+    }
+  }
+
+  // 이미지 업로드 (변경)
+  imageInput.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      imageHelper.textContent = "파일을 선택해주세요.";
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    imageHelper.textContent = "이미지를 업로드 중입니다...";
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/image`, {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (res.status === 201) {
+        const data = await res.json();
+        if (data.data && data.data.file_path) {
+          imageUrl = data.data.file_path;
+          setHelper(imageHelper, "", "");
+        } else {
+          imageUrl = null;
+          setHelper(
+            imageHelper,
+            "이미지 업로드 중 오류가 발생했습니다.",
+            "error"
+          );
+        }
+      } else {
+        imageUrl = null;
+        setHelper(
+          imageHelper,
+          "이미지 업로드 중 오류가 발생했습니다.",
+          "error"
+        );
+      }
+    } catch (err) {
+      imageUrl = null;
+      setHelper(
+        imageHelper,
+        "이미지 업로드 중 오류가 발생했습니다.",
+        "error"
+      );
+    }
+  });
+
+  // 수정하기
+  submitBtn.addEventListener("click", async () => {
+    if (!titleFilled || !contentFilled) {
+      updateMainHelper();
+      return;
+    }
+
+    const payload = {
+      user_id: user.user_id,
+      title: titleInput.value.trim(),
+      content: contentInput.value.trim(),
+      image_url: imageUrl,
+    };
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (res.status === 200 && data.detail === "post_update_success") {
+        window.location.href = `post_detail.html?postId=${postId}`;
+      } else {
+        alert("게시글 수정에 실패했습니다. (" + (data.detail || res.status) + ")");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("게시글 수정 중 오류가 발생했습니다.");
+    }
+  });
+
+  await fetchPost();
+}
+
+// ---------- 게시글 상세조회 페이지 ----------
+async function initPostDetailPage() {
+  const user = initAuthedPage();
+  if (!user) return;
+
+  const postId = getQueryParam("postId");
+  if (!postId) {
+    alert("잘못된 접근입니다.");
+    window.location.href = "posts.html";
+    return;
+  }
+
+  const backBtn = document.getElementById("detail-back-btn");
+  backBtn.addEventListener("click", () => {
+    window.location.href = "posts.html";
+  });
+
+  const titleEl = document.getElementById("detail-title");
+  const authorEl = document.getElementById("detail-author");
+  const dateEl = document.getElementById("detail-date");
+  const imgWrapper = document.getElementById("detail-image-wrapper");
+  const imgEl = document.getElementById("detail-image");
+  const contentEl = document.getElementById("detail-content");
+  const likePill = document.getElementById("like-pill");
+  const likeCountEl = document.getElementById("like-count");
+  const viewCountEl = document.getElementById("view-count");
+  const commentCountEl = document.getElementById("comment-count");
+  const ownerActions = document.getElementById("post-owner-actions");
+  const editBtn = document.getElementById("post-edit-btn");
+  const deleteBtn = document.getElementById("post-delete-btn");
+  const deleteModal = document.getElementById("post-delete-modal");
+  const deleteCancel = document.getElementById("post-delete-cancel");
+  const deleteConfirm = document.getElementById("post-delete-confirm");
+
+  const commentTextarea = document.getElementById("comment-textarea");
+  const commentSubmitBtn = document.getElementById("comment-submit-btn");
+  const commentsList = document.getElementById("comments-list");
+
+  // 댓글 삭제 모달
+  const commentDeleteModal = document.getElementById("comment-delete-modal");
+  const commentDeleteCancel = document.getElementById("comment-delete-cancel");
+  const commentDeleteConfirm = document.getElementById("comment-delete-confirm");
+
+  let liked = false;
+  let likeId = null;
+  let likeCount = 0;
+  let totalCommentCount = 0;
+
+  let editingCommentId = null; // null이면 새 댓글 모드
+  let pendingDeleteCommentId = null;
+
+  function updateLikeUI() {
+    likeCountEl.textContent = formatCount(likeCount);
+    if (liked) {
+      likePill.classList.add("liked");
+    } else {
+      likePill.classList.remove("liked");
+    }
+  }
+
+  function updateCommentButtonState() {
+    const hasText = commentTextarea.value.trim().length > 0;
+    if (hasText) {
+      commentSubmitBtn.classList.add("active");
+      commentSubmitBtn.disabled = false;
+    } else {
+      commentSubmitBtn.classList.remove("active");
+      commentSubmitBtn.disabled = true;
+    }
+  }
+
+  commentTextarea.addEventListener("input", updateCommentButtonState);
+
+  // 상세 조회 API 호출
+  async function fetchPostDetail() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.status !== 200 || data.detail !== "post_detail_success") {
+        console.error("detail error:", res.status, data);
+        alert("게시글을 불러오지 못했습니다.");
+        window.location.href = "posts.html";
+        return;
+      }
+
+      const post = data.data;
+
+      titleEl.textContent = post.title;
+      authorEl.textContent = post.author_nickname;
+      dateEl.textContent = post.created_at; // 서버 포맷 그대로 사용
+      contentEl.textContent = post.content;
+
+      if (post.image_url) {
+        imgWrapper.style.display = "block";
+        imgEl.src = post.image_url;
+      } else {
+        imgWrapper.style.display = "none";
+      }
+
+      likeCount = post.likes || 0;
+      liked = !!post.is_liked_by_me;
+      likeId = post.is_liked_by_me ? post.like_id : null;
+      totalCommentCount = post.comments_count || 0;
+
+      updateLikeUI();
+      viewCountEl.textContent = formatCount(post.views || 0);
+      commentCountEl.textContent = formatCount(totalCommentCount);
+
+      // 작성자 본인인 경우 수정/삭제 버튼 보여주기 (nickname 기준)
+      if (post.author_nickname === user.nickname) {
+        ownerActions.style.display = "flex";
+      } else {
+        ownerActions.style.display = "none";
+      }
+
+      // 댓글 렌더링
+      renderComments(post.comments || []);
+    } catch (err) {
+      console.error(err);
+      alert("게시글을 불러오지 못했습니다.");
+      window.location.href = "posts.html";
+    }
+  }
+
+  function renderComments(comments) {
+    commentsList.innerHTML = "";
+    comments.forEach((c) => {
+      const item = document.createElement("div");
+      item.className = "comment-item";
+      item.dataset.commentId = c.comment_id;
+
+      const avatar = document.createElement("div");
+      avatar.className = "comment-avatar";
+      avatar.textContent = c.author_nickname
+        ? c.author_nickname[0].toUpperCase()
+        : "?";
+
+      const body = document.createElement("div");
+      body.className = "comment-body";
+
+      const headerRow = document.createElement("div");
+      headerRow.className = "comment-header-row";
+
+      const left = document.createElement("div");
+      const authorSpan = document.createElement("span");
+      authorSpan.className = "comment-author";
+      authorSpan.textContent = c.author_nickname;
+      const dateSpan = document.createElement("span");
+      dateSpan.className = "comment-meta";
+      dateSpan.textContent = " · " + c.created_at;
+      left.appendChild(authorSpan);
+      left.appendChild(dateSpan);
+
+      const right = document.createElement("div");
+      right.className = "comment-meta";
+
+      headerRow.appendChild(left);
+      headerRow.appendChild(right);
+
+      const content = document.createElement("div");
+      content.className = "comment-content";
+      content.textContent = c.content;
+
+      body.appendChild(headerRow);
+      body.appendChild(content);
+
+      // 내 댓글이면 수정/삭제 버튼
+      if (c.author_nickname === user.profile_nickname) {
+        const actionsRow = document.createElement("div");
+        actionsRow.className = "comment-actions-row";
+
+        const editBtn = document.createElement("button");
+        editBtn.textContent = "수정";
+        editBtn.addEventListener("click", () => {
+          editingCommentId = c.comment_id;
+          commentTextarea.value = c.content;
+          commentSubmitBtn.textContent = "댓글 수정";
+          updateCommentButtonState();
+          commentTextarea.focus();
+        });
+
+        const delBtn = document.createElement("button");
+        delBtn.textContent = "삭제";
+        delBtn.addEventListener("click", () => {
+          pendingDeleteCommentId = c.comment_id;
+          commentDeleteModal.classList.add("show");
+          document.body.style.overflow = "hidden";
+        });
+
+        actionsRow.appendChild(editBtn);
+        actionsRow.appendChild(delBtn);
+        body.appendChild(actionsRow);
+      }
+
+      item.appendChild(avatar);
+      item.appendChild(body);
+      commentsList.appendChild(item);
+    });
+  }
+
+  // 좋아요 토글
+  likePill.addEventListener("click", async () => {
+    try {
+      if (!liked) {
+        const res = await fetch(`${API_BASE_URL}/like`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            post_id: Number(postId),
+            user_id: user.user_id,
+          }),
+        });
+        const data = await res.json();
+        if (res.status === 201 && data.detail === "like_create_success") {
+          liked = true;
+          likeId = data.data.like_id;
+          likeCount += 1;
+          updateLikeUI();
+        } else {
+          alert("좋아요 등록에 실패했습니다.");
+        }
+      } else {
+        if (!likeId) return;
+        const res = await fetch(`${API_BASE_URL}/like/${likeId}`, {
+          method: "DELETE",
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (res.status === 200 && data.detail === "like_delete_success") {
+          liked = false;
+          likeId = null;
+          likeCount = Math.max(0, likeCount - 1);
+          updateLikeUI();
+        } else {
+          alert("좋아요 취소에 실패했습니다.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("좋아요 처리 중 오류가 발생했습니다.");
+    }
+  });
+
+  // 댓글 등록 / 수정
+  commentSubmitBtn.addEventListener("click", async () => {
+    const text = commentTextarea.value.trim();
+    if (!text) {
+      updateCommentButtonState();
+      return;
+    }
+
+    try {
+      if (editingCommentId == null) {
+        // 새 댓글
+        const res = await fetch(`${API_BASE_URL}/comment`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            post_id: Number(postId),
+            user_id: user.user_id,
+            content: text,
+          }),
+        });
+        const data = await res.json();
+        if (res.status === 201 && data.detail === "comment_create_success") {
+          commentTextarea.value = "";
+          commentSubmitBtn.textContent = "댓글 등록";
+          editingCommentId = null;
+          totalCommentCount += 1;
+          commentCountEl.textContent = formatCount(totalCommentCount);
+          await fetchPostDetail(); // 새로고침
+        } else {
+          alert("댓글 등록에 실패했습니다.");
+        }
+      } else {
+        // 댓글 수정
+        const res = await fetch(
+          `${API_BASE_URL}/comment/${editingCommentId}`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ content: text }),
+          }
+        );
+        const data = await res.json();
+        if (res.status === 200 && data.detail === "comment_update_success") {
+          commentTextarea.value = "";
+          commentSubmitBtn.textContent = "댓글 등록";
+          editingCommentId = null;
+          await fetchPostDetail();
+        } else {
+          alert("댓글 수정에 실패했습니다.");
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("댓글 처리 중 오류가 발생했습니다.");
+    } finally {
+      updateCommentButtonState();
+    }
+  });
+
+  // 댓글 삭제 모달
+  commentDeleteCancel.addEventListener("click", () => {
+    commentDeleteModal.classList.remove("show");
+    document.body.style.overflow = "";
+    pendingDeleteCommentId = null;
+  });
+  commentDeleteConfirm.addEventListener("click", async () => {
+    if (!pendingDeleteCommentId) return;
+    try {
+      const res = await fetch(
+        `${API_BASE_URL}/comment/${pendingDeleteCommentId}`,
+        {
+          method: "DELETE",
+          credentials: "include",
+        }
+      );
+      const data = await res.json();
+      if (res.status === 200 && data.detail === "comment_delete_success") {
+        totalCommentCount = Math.max(0, totalCommentCount - 1);
+        commentCountEl.textContent = formatCount(totalCommentCount);
+        await fetchPostDetail();
+      } else {
+        alert("댓글 삭제에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("댓글 삭제 중 오류가 발생했습니다.");
+    } finally {
+      commentDeleteModal.classList.remove("show");
+      document.body.style.overflow = "";
+      pendingDeleteCommentId = null;
+    }
+  });
+
+  // 게시글 수정 버튼
+  editBtn.addEventListener("click", () => {
+    window.location.href = `post_edit.html?postId=${postId}`;
+  });
+
+  // 게시글 삭제 모달
+  deleteBtn.addEventListener("click", () => {
+    deleteModal.classList.add("show");
+    document.body.style.overflow = "hidden";
+  });
+  deleteCancel.addEventListener("click", () => {
+    deleteModal.classList.remove("show");
+    document.body.style.overflow = "";
+  });
+  deleteConfirm.addEventListener("click", async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/posts/${postId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.status === 200 && data.detail === "post_delete_success") {
+        window.location.href = "posts.html";
+      } else {
+        alert("게시글 삭제에 실패했습니다.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("게시글 삭제 중 오류가 발생했습니다.");
+    } finally {
+      deleteModal.classList.remove("show");
+      document.body.style.overflow = "";
+    }
+  });
+
+  // 초기화
+  commentSubmitBtn.disabled = true;
+  await fetchPostDetail();
+  updateCommentButtonState();
 }
 
 // ---------- 페이지별 초기화 ----------
@@ -1333,5 +2055,11 @@ document.addEventListener("DOMContentLoaded", () => {
     initProfileEditPage();
   } else if (page === "password-edit") {
     initPasswordEditPage();
+  } else if (page === "create-post") {
+    initCreatePostPage();
+  } else if (page === "post-detail") {
+    initPostDetailPage();
+  } else if (page === "post-edit") {
+    initPostEditPage();
   }
 });

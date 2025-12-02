@@ -3,4 +3,4 @@
 ```
 python -m http.server 5500
 ```
-http://localhost:8000/login.html
+http://localhost:5500/login.html
