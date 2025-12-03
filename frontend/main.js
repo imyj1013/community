@@ -1497,6 +1497,11 @@ async function initPostEditPage() {
   const mainHelper = document.getElementById("edit-main-helper");
   const imageInput = document.getElementById("edit-image-input");
   const imageHelper = document.getElementById("edit-image-helper");
+  const fileRow = document.getElementById("edit-image-file-row");
+  const currentImageRow = document.getElementById("current-image-row");
+  const currentImageLabel = document.getElementById("current-image-label");
+  const deleteImageBtn = document.getElementById("delete-image-btn");
+
   const submitBtn = document.getElementById("edit-submit-btn");
 
   backBtn.addEventListener("click", () => {
@@ -1536,6 +1541,20 @@ async function initPostEditPage() {
     updateSubmitButton();
   });
 
+  deleteImageBtn.addEventListener("click", () => {
+    // 서버에 보낼 이미지 경로 제거
+    imageUrl = null;
+
+    // UI 전환: 삭제 영역 숨기고 파일 선택 다시 노출
+    currentImageRow.style.display = "none";
+    fileRow.style.display = "block";
+
+    // file input 초기화 + helper 문구
+    imageInput.value = "";
+    imageHelper.textContent = "파일을 선택해주세요.";
+  });
+
+
   // 기존 게시글 정보 가져오기
   async function fetchPost() {
     try {
@@ -1558,10 +1577,16 @@ async function initPostEditPage() {
       contentFilled = !!post.content;
       updateMainHelper();
       updateSubmitButton();
-
       if (imageUrl) {
-        imageHelper.textContent = `현재 이미지가 등록되어 있습니다. (변경 시 새 파일을 선택하세요)`;
+        // 기존 이미지가 있는 경우: 삭제 버튼 + 현재 이미지 텍스트만 보이게
+        currentImageLabel.textContent = `현재 등록된 이미지: ${imageUrl}`;
+        currentImageRow.style.display = "flex";
+        fileRow.style.display = "none";          // 파일 선택 버튼 숨김
+        imageHelper.textContent = "";            // helper는 일단 비워두기
       } else {
+        // 기존 이미지가 없는 경우: 파일 선택 버튼만 보이게
+        currentImageRow.style.display = "none";
+        fileRow.style.display = "block";
         imageHelper.textContent = "파일을 선택해주세요.";
       }
     } catch (err) {
@@ -1575,7 +1600,10 @@ async function initPostEditPage() {
   imageInput.addEventListener("change", async (e) => {
     const file = e.target.files[0];
     if (!file) {
-      imageHelper.textContent = "파일을 선택해주세요.";
+      // 파일 다시 선택 취소한 경우
+      if (!imageUrl) {
+        imageHelper.textContent = "파일을 선택해주세요.";
+      }
       return;
     }
 
@@ -1595,7 +1623,7 @@ async function initPostEditPage() {
         const data = await res.json();
         if (data.data && data.data.file_path) {
           imageUrl = data.data.file_path;
-          setHelper(imageHelper, "", "");
+          imageHelper.textContent = ""; 
         } else {
           imageUrl = null;
           setHelper(
@@ -1769,8 +1797,8 @@ async function initPostDetailPage() {
       viewCountEl.textContent = formatCount(post.views || 0);
       commentCountEl.textContent = formatCount(totalCommentCount);
 
-      // 작성자 본인인 경우 수정/삭제 버튼 보여주기 (nickname 기준)
-      if (post.author_nickname === user.nickname) {
+      // 작성자 본인인 경우 수정/삭제 버튼 보여주기
+      if (Number(post.author_user_id) === Number(user.user_id)) {
         ownerActions.style.display = "flex";
       } else {
         ownerActions.style.display = "none";
@@ -1828,7 +1856,7 @@ async function initPostDetailPage() {
       body.appendChild(content);
 
       // 내 댓글이면 수정/삭제 버튼
-      if (c.author_nickname === user.profile_nickname) {
+      if (Number(c.user_id) === Number(user.user_id)) {
         const actionsRow = document.createElement("div");
         actionsRow.className = "comment-actions-row";
 
