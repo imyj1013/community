@@ -28,7 +28,7 @@ async def get_post_list_by_id(db: AsyncSession, cursor_id: int):
     result = await db.execute(select(Post).where(Post.post_id > cursor_id).order_by(Post.post_id.asc()))
     return result.scalars().all()
 
-async def update_post(db: AsyncSession, post, title, content, summary, image_url):
+async def update_post(db: AsyncSession, post, title, content, summary, image_url: str | None):
     post.title = title
     post.content = content
     post.summary = summary
