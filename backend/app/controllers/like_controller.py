@@ -1,6 +1,7 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import traceback
 from . import __init__ as _
 from ..models import user_model, post_model, like_model
 
@@ -38,7 +39,7 @@ async def create_like(request: Request, db: AsyncSession):
         post = await post_model.update_likes(db, post, 1)
 
         return JSONResponse(
-            status_code=200,
+            status_code=201,
             content={
                 "detail": "like_create_success",
                 "data": {"like_id": like.like_id},
@@ -46,7 +47,9 @@ async def create_like(request: Request, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[create-like] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -75,5 +78,7 @@ async def delete_like(like_id: int, request: Request, db: AsyncSession):
         return JSONResponse(status_code=200, content={"detail": "like_delete_success"})
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[delete-like] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")

@@ -2,6 +2,7 @@ from fastapi import Request, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from pathlib import Path
+import traceback
 import os
 import uuid
 from . import __init__ as _
@@ -65,6 +66,8 @@ async def login(request: Request, db: AsyncSession):
     except HTTPException:
         raise
     except Exception as e:
+        print("[login] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
         
 
@@ -107,6 +110,8 @@ async def signup(request: Request, db: AsyncSession):
     except HTTPException:
         raise
     except Exception as e:
+        print("[signup] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -129,7 +134,9 @@ async def check_email(email: str, db: AsyncSession):
             raise HTTPException(status_code=400, detail="invalid_email_format")
     except HTTPException:
         raise
-    except:
+    except Exception as e:
+        print("[check-email] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -152,7 +159,9 @@ async def check_nickname(nickname: str, db: AsyncSession):
             raise HTTPException(status_code=400, detail="invalid_nickname_format")
     except HTTPException:
         raise
-    except:
+    except Exception as e:
+        print("[check-nickname] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -194,7 +203,9 @@ async def update_me(user_id: int, request: Request, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except:
+    except Exception as e:
+        print("[update-profile] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -231,7 +242,9 @@ async def update_password(user_id: int, request: Request, db: AsyncSession):
         return JSONResponse(status_code=200, content={"detail": "password_update_success"})
     except HTTPException:
         raise
-    except:
+    except Exception as e:
+        print("[update password] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -254,7 +267,9 @@ async def logout(user_id: int, request: Request, db: AsyncSession):
         return JSONResponse(status_code=200, content={"detail": "logout_success"})
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[logout] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -279,7 +294,9 @@ async def delete_user(user_id: int, request: Request, db: AsyncSession):
         return JSONResponse(status_code=200, content={"detail": "user_delete_success"})
     except HTTPException:
         raise
-    except:
+    except Exception as e:
+        print("[delete-user] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -320,5 +337,7 @@ async def upload_image (file: UploadFile):
         )
     except HTTPException:
         raise
-    except:
+    except Exception as e:
+        print("[upload-image] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")                 

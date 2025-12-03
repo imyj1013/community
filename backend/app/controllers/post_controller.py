@@ -1,6 +1,7 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import traceback
 from . import __init__ as _
 from ..models import user_model, post_model, comment_model, like_model
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
@@ -20,11 +21,12 @@ async def list_posts(cursor_id: int, count: int, db: AsyncSession):
 
         data_list = []
         for p in sliced:
+            author = await user_model.get_user_by_id(db, p.user_id)
             data_list.append(
                 {
                     "post_id": p.post_id,
                     "title": p.title,
-                    "author_nickname": p.author_nickname,
+                    "author_nickname": author.nickname,
                     "created_at": p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else None,
                     "summary": p.summary,
                     "views": p.views,
@@ -41,7 +43,9 @@ async def list_posts(cursor_id: int, count: int, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[post-list] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -63,7 +67,7 @@ async def create_post(request: Request, db: AsyncSession):
         if not session_user_id:
             raise HTTPException(status_code=401, detail="unauthorized_user")
 
-        user = user_model.get_user_by_id(db, user_id)
+        user = await user_model.get_user_by_id(db, user_id)
         if not user:
             raise HTTPException(status_code=400, detail="invalid_post_create_request")
 
@@ -82,7 +86,9 @@ async def create_post(request: Request, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[create-post] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -127,7 +133,9 @@ async def update_post(post_id: int, request: Request, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[update-post] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -148,7 +156,7 @@ async def get_post_detail(post_id: int, request: Request, db: AsyncSession):
 
         comments_json = []
         for c in post_comments:
-            author = user_model.get_user_by_id(db, c.user_id)
+            author = await user_model.get_user_by_id(db, c.user_id)
             nickname = author.nickname if author else "unknown"
             comments_json.append(
                 {
@@ -156,10 +164,12 @@ async def get_post_detail(post_id: int, request: Request, db: AsyncSession):
                     "content": c.content,
                     "author_nickname": nickname,
                     "created_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else None,
+                    "user_id": c.user_id,
                 }
             )
 
         await post_model.update_views(db, post)
+        author = await user_model.get_user_by_id(db, post.user_id)
 
         return JSONResponse(
             status_code=200,
@@ -170,7 +180,8 @@ async def get_post_detail(post_id: int, request: Request, db: AsyncSession):
                     "title": post.title,
                     "content": post.content,
                     "image_url": getattr(post, "image_url", None),
-                    "author_nickname": post.author_nickname,
+                    "author_nickname": author.nickname,
+                    "author_user_id": post.user_id,
                     "created_at": post.created_at.strftime("%Y-%m-%d %H:%M:%S") if post.created_at else None,
                     "updated_at": post.created_at.strftime("%Y-%m-%d %H:%M:%S") if post.created_at else None,
                     "views": post.views,
@@ -184,7 +195,9 @@ async def get_post_detail(post_id: int, request: Request, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[post-detail] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -207,5 +220,7 @@ async def delete_post(post_id: int, request: Request, db: AsyncSession):
         return JSONResponse(status_code=200, content={"detail": "post_delete_success"})
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[delete-post] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")

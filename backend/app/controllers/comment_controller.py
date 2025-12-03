@@ -1,6 +1,7 @@
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
+import traceback
 from . import __init__ as _
 from ..models import user_model, post_model, comment_model
 
@@ -41,7 +42,9 @@ async def create_comment(request: Request, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[comment-create] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -77,7 +80,9 @@ async def update_comment(comment_id: int, request: Request, db: AsyncSession):
         )
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[update-comment] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
 
 
@@ -106,5 +111,7 @@ async def delete_comment(comment_id: int, request: Request, db: AsyncSession):
         return JSONResponse(status_code=200, content={"detail": "comment_delete_success"})
     except HTTPException:
         raise
-    except Exception:
+    except Exception as e:
+        print("[delete-comment] unexpected error:", repr(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail="internal_server_error")
