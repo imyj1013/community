@@ -25,13 +25,30 @@ async def login(request: Request, db: AsyncSession):
             raise HTTPException(status_code=401, detail="login_invalid_email_or_pwd")
 
         session_id = request.session.get("sessionID")
-        if not session_id:
-            session_id = str(uuid.uuid4())
-            request.session["sessionID"] = session_id
-            request.session["email"] = email
-            request.session["user_id"] = user.user_id
-        else:
-            raise HTTPException(status_code=409, detail="already_logged_in")
+        session_email = request.session.get("email")
+        session_user_id = request.session.get("user_id")
+
+        if session_id and session_email == email and session_user_id == user.user_id:
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "detail": "login_success",
+                    "data": {
+                        "user_id": user.user_id,
+                        "profile_img_url": getattr(user, "profile_image", None),
+                        "profile_nickname": user.nickname,
+                        "session_id": session_id,
+                    },
+                },
+            )
+
+        if session_id and session_user_id != user.user_id:
+            request.session.clear()
+
+        new_session_id = str(uuid.uuid4())
+        request.session["sessionID"] = new_session_id
+        request.session["email"] = email
+        request.session["user_id"] = user.user_id
 
         return JSONResponse(
             status_code=200,
@@ -41,9 +58,9 @@ async def login(request: Request, db: AsyncSession):
                     "user_id": user.user_id,
                     "profile_img_url": getattr(user, "profile_image", None),
                     "profile_nickname": user.nickname,
-                    "session_id": session_id
-                }
-            }
+                    "session_id": new_session_id,
+                },
+            },
         )
     except HTTPException:
         raise
