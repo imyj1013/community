@@ -11,6 +11,7 @@ aiofiles==24.1.0
 sqlalchemy[asyncio]==2.0.25
 asyncmy==0.2.9 
 python-dotenv==1.0.1
+cryptography==46.0.3
 
 # --- Password hashing ---
 passlib[bcrypt]==1.7.4
