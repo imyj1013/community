@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:8000"; // 필요하면 수정
+const API_BASE_URL = "http://localhost:8000";
 const USER_KEY = "amumal-user";
 
 // ---------- 공통 유틸 ----------
@@ -781,6 +781,25 @@ function initPostsPage() {
             <div>${post.author_nickname}</div>
           </div>
         `;
+
+        const avatarDiv = card.querySelector(".post-author-avatar");
+        if (avatarDiv) {
+          const imgUrl = post.author_profile_image;
+          const nickname = post.author_nickname || "U";
+
+          if (imgUrl && typeof imgUrl === "string") {
+            // 이미지가 있는 경우: 배경 이미지로 표시
+            avatarDiv.style.backgroundImage = `url(${imgUrl})`;
+            avatarDiv.style.backgroundSize = "cover";
+            avatarDiv.style.backgroundPosition = "center";
+            avatarDiv.style.backgroundRepeat = "no-repeat";
+            avatarDiv.textContent = ""; // 글자 제거
+          } else {
+            // 이미지가 없는 경우: 이니셜 표시
+            avatarDiv.style.backgroundImage = "none";
+            avatarDiv.textContent = nickname.charAt(0).toUpperCase();
+          }
+        }
 
         card.addEventListener("click", () => {
           window.location.href = `post_detail.html?postId=${post.post_id}`;
@@ -1822,9 +1841,18 @@ async function initPostDetailPage() {
 
       const avatar = document.createElement("div");
       avatar.className = "comment-avatar";
-      avatar.textContent = c.author_nickname
-        ? c.author_nickname[0].toUpperCase()
-        : "?";
+
+      if (c.author_profile_image) {
+        const img = document.createElement("img");
+        img.src = c.author_profile_image;
+        img.alt = c.author_nickname || "author";
+        avatar.appendChild(img);
+      } else {
+        const span = document.createElement("span");
+        span.className = "comment-avatar-initial";
+        span.textContent = (c.author_nickname?.[0] || "U").toUpperCase();
+        avatar.appendChild(span);
+      }
 
       const body = document.createElement("div");
       body.className = "comment-body";

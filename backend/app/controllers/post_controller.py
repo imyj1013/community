@@ -27,6 +27,7 @@ async def list_posts(cursor_id: int, count: int, db: AsyncSession):
                     "post_id": p.post_id,
                     "title": p.title,
                     "author_nickname": author.nickname,
+                    "author_profile_image": author.profile_image,
                     "created_at": p.created_at.strftime("%Y-%m-%d %H:%M:%S") if p.created_at else None,
                     "summary": p.summary,
                     "views": p.views,
@@ -157,12 +158,12 @@ async def get_post_detail(post_id: int, request: Request, db: AsyncSession):
         comments_json = []
         for c in post_comments:
             author = await user_model.get_user_by_id(db, c.user_id)
-            nickname = author.nickname if author else "unknown"
             comments_json.append(
                 {
                     "comment_id": c.comment_id,
                     "content": c.content,
-                    "author_nickname": nickname,
+                    "author_nickname": author.nickname,
+                    "author_profile_image": author.profile_image,
                     "created_at": c.created_at.strftime("%Y-%m-%d %H:%M:%S") if c.created_at else None,
                     "user_id": c.user_id,
                 }
