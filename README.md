@@ -148,3 +148,8 @@ http://localhost:5500/login.html
 ```
 content → tokenizer → BART → generate(summary_ids)
 ```
+---
+
+# **시연영상**
+
+https://drive.google.com/file/d/16yCrMHfZRHSoyG99GfKu6IIlS5KXJN1I/view?usp=sharing 
