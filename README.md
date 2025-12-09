@@ -11,6 +11,15 @@ AI 모델(BART)을 활용한 게시글 요약 기능과 이미지 업로드 시�
 https://drive.google.com/file/d/16yCrMHfZRHSoyG99GfKu6IIlS5KXJN1I/view?usp=sharing 
 
 ---
+| 로그인 | 회원가입 | 개인정보수정 |
+|---|---|---|
+| <img width="1119" height="785" alt="Image" src="https://github.com/user-attachments/assets/e0b407b0-bd36-45e1-96bd-edb3297c08e2" /> | <img width="1118" height="786" alt="Image" src="https://github.com/user-attachments/assets/61b9f54f-c7c4-4eda-ae24-84c9012b1a7c" /> | <img width="1121" height="786" alt="Image" src="https://github.com/user-attachments/assets/471465b7-250b-4955-a4a7-ecb09e8f11aa" /> |
+
+| 비밀번호수정 | 게시글목록 | 게시글상세조회 |
+|---|---|---|
+| <img width="1119" height="786" alt="Image" src="https://github.com/user-attachments/assets/b0efd852-90d5-4ba5-93f7-1b689efa0d7b" /> | <img width="1109" height="780" alt="Image" src="https://github.com/user-attachments/assets/d7ec5bea-31c4-4f36-a953-1e29de66df33" /> | <img width="1122" height="789" alt="Image" src="https://github.com/user-attachments/assets/e2d8acfb-ec6d-4832-a258-54991e540dfc" /> |
+
+---
 
 # **주요 기능 요약**
 
