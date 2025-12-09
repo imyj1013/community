@@ -6,6 +6,12 @@ AI 모델(BART)을 활용한 게시글 요약 기능과 이미지 업로드 시�
 
 ---
 
+# **시연영상**
+
+https://drive.google.com/file/d/16yCrMHfZRHSoyG99GfKu6IIlS5KXJN1I/view?usp=sharing 
+
+---
+
 # **주요 기능 요약**
 
 ### 사용자 기능
@@ -148,8 +154,3 @@ http://localhost:5500/login.html
 ```
 content → tokenizer → BART → generate(summary_ids)
 ```
----
-
-# **시연영상**
-
-https://drive.google.com/file/d/16yCrMHfZRHSoyG99GfKu6IIlS5KXJN1I/view?usp=sharing 
